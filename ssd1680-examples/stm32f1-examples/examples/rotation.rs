@@ -1,6 +1,10 @@
-//! This example draws a small square one pixel at a time in the top left corner of the display
+//! Draw the Rust logo centered on a 90 degree rotated 128x64px display
 //!
-//! You will probably want to use the [`embedded_graphics`](https://crates.io/crates/embedded-graphics) crate to do more complex drawing.
+//! Image was created with ImageMagick:
+//!
+//! ```bash
+//! convert rust.png -depth 1 gray:rust.raw
+//! ```
 //!
 //! This example is for the STM32F103 "Blue Pill" board using a 4 wire interface to the display on
 //! SPI1.
@@ -16,14 +20,15 @@
 //! PB1 -> D/C
 //! ```
 //!
-//! Run on a Blue Pill with `cargo run --release --example pixelsquare`.
+//! Run on a Blue Pill with `cargo run --release --example rotation`.
 
 #![no_std]
 #![no_main]
 
 use cortex_m_rt::{entry, exception, ExceptionFrame};
+use embedded_graphics::{image::ImageRawLE, pixelcolor::BinaryColor, prelude::*};
 use panic_semihosting as _;
-use ssd1331::{DisplayRotation::Rotate0, Ssd1331};
+use ssd1680::{DisplayRotation, Ssd1680};
 use stm32f1xx_hal::{
     delay::Delay,
     prelude::*,
@@ -69,40 +74,23 @@ fn main() -> ! {
         &mut rcc.apb2,
     );
 
-    let mut display = Ssd1331::new(spi, dc, Rotate0);
+    // Initialise the display with a default rotation of 90 degrees
+    let mut display = Ssd1680::new(spi, dc, DisplayRotation::Rotate90);
 
     display.reset(&mut rst, &mut delay).unwrap();
     display.init().unwrap();
     display.flush().unwrap();
 
-    let white = 0xffff;
-    let red = 0xf800;
-    let green = 0x07e0;
-    let blue = 0x001f;
+    // Set a new rotation of 270 degrees
+    display.set_rotation(DisplayRotation::Rotate270).unwrap();
 
-    // Top side
-    display.set_pixel(0, 0, white);
-    display.set_pixel(1, 0, white);
-    display.set_pixel(2, 0, white);
-    display.set_pixel(3, 0, white);
+    // Load a 1BPP 64x64px image with LE (Little Endian) encoding of the Rust logo, white foreground
+    // black background
+    let im = ImageRawLE::<BinaryColor>::new(include_bytes!("../../../assets/rust.raw"), 64);
 
-    // Right side
-    display.set_pixel(3, 0, red);
-    display.set_pixel(3, 1, red);
-    display.set_pixel(3, 2, red);
-    display.set_pixel(3, 3, red);
-
-    // Bottom side
-    display.set_pixel(0, 3, green);
-    display.set_pixel(1, 3, green);
-    display.set_pixel(2, 3, green);
-    display.set_pixel(3, 3, green);
-
-    // Left side
-    display.set_pixel(0, 0, blue);
-    display.set_pixel(0, 1, blue);
-    display.set_pixel(0, 2, blue);
-    display.set_pixel(0, 3, blue);
+    // Use `color_converted` to create a wrapper that converts BinaryColors to Rgb565 colors to send
+    // to the display.
+    im.draw(&mut display.color_converted()).unwrap();
 
     display.flush().unwrap();
 

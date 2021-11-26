@@ -1,5 +1,10 @@
-//! Draw a square, circle and triangle on the screen using the embedded_graphics library over a 4
-//! wire SPI interface.
+//! Draw a 1 bit per pixel black and white image. On a 128x64 SSD1680 display over I2C.
+//!
+//! Image was created with ImageMagick:
+//!
+//! ```bash
+//! convert rust.png -depth 1 gray:rust.raw
+//! ```
 //!
 //! This example is for the STM32F103 "Blue Pill" board using a 4 wire interface to the display on
 //! SPI1.
@@ -15,20 +20,18 @@
 //! PB1 -> D/C
 //! ```
 //!
-//! Run on a Blue Pill with `cargo run --release --example graphics`.
+//! Run on a Blue Pill with `cargo run --release --example image`.
 
 #![no_std]
 #![no_main]
 
 use cortex_m_rt::{entry, exception, ExceptionFrame};
 use embedded_graphics::{
-    geometry::Point,
-    pixelcolor::Rgb565,
+    image::{Image, ImageRawLE},
     prelude::*,
-    primitives::{Circle, PrimitiveStyle, Rectangle, Triangle},
 };
 use panic_semihosting as _;
-use ssd1331::{DisplayRotation::Rotate0, Ssd1331};
+use ssd1680::{DisplayRotation::Rotate0, Ssd1680};
 use stm32f1xx_hal::{
     delay::Delay,
     prelude::*,
@@ -74,28 +77,17 @@ fn main() -> ! {
         &mut rcc.apb2,
     );
 
-    let mut display = Ssd1331::new(spi, dc, Rotate0);
+    let mut display = Ssd1680::new(spi, dc, Rotate0);
 
     display.reset(&mut rst, &mut delay).unwrap();
     display.init().unwrap();
     display.flush().unwrap();
 
-    Triangle::new(
-        Point::new(8, 16 + 16),
-        Point::new(8 + 16, 16 + 16),
-        Point::new(8 + 8, 16),
-    )
-    .into_styled(PrimitiveStyle::with_stroke(Rgb565::RED, 1))
-    .draw(&mut display)
-    .unwrap();
+    // Loads an 86x64px image encoded in LE (Little Endian) format. This image is a 16BPP image of
+    // the Rust mascot, Ferris.
+    let im = ImageRawLE::new(include_bytes!("../../../assets/ferris.raw"), 86);
 
-    Rectangle::with_corners(Point::new(36, 16), Point::new(36 + 16, 16 + 16))
-        .into_styled(PrimitiveStyle::with_stroke(Rgb565::GREEN, 1))
-        .draw(&mut display)
-        .unwrap();
-
-    Circle::new(Point::new(64, 16), 16)
-        .into_styled(PrimitiveStyle::with_stroke(Rgb565::BLUE, 1))
+    Image::new(&im, Point::new((96 - 86) / 2, 0))
         .draw(&mut display)
         .unwrap();
 

@@ -16,7 +16,7 @@ use embassy_nrf::{interrupt, spim};
 use embedded_graphics::prelude::*;
 use embedded_graphics::{image::Image, pixelcolor::Rgb565};
 use embedded_hal::digital::v2::OutputPin;
-use ssd1331::{DisplayRotation, Ssd1331};
+use ssd1680::{DisplayRotation, Ssd1680};
 use tinybmp::Bmp;
 
 // we make a lazily created static
@@ -78,7 +78,7 @@ pub async fn display_task() {
 
     let mut rst = Output::new(&mut dp.P0_16, Level::High, OutputDrive::Standard);
     let dc = Output::new(&mut dp.P0_15, Level::High, OutputDrive::Standard);
-    let mut display = Ssd1331::new(spim, dc, DisplayRotation::Rotate0);
+    let mut display = Ssd1680::new(spim, dc, DisplayRotation::Rotate0);
     Timer::after(Duration::from_millis(1)).await;
     rst.set_low().ok();
     Timer::after(Duration::from_millis(1)).await;

@@ -1,6 +1,6 @@
-//! SSD1331 OLED display driver
+//! SSD1680 OLED display driver
 //!
-//! This crate is an SPI-based driver for the popular SSD1331 colour OLED display. This display uses
+//! This crate is an SPI-based driver for the popular SSD1680 colour OLED display. This display uses
 //! an RGB565 colour space on a canvas of 96x64 pixels and runs over SPI. This driver should work
 //! with any device implementing the [embedded-hal] [`blocking::spi::Write`] trait.
 //!
@@ -12,12 +12,12 @@
 //! # Examples
 //!
 //! Full examples can be found in
-//! [the examples/ folder](https://github.com/jamwaffles/ssd1331/blob/master/examples)
+//! [the examples/ folder](https://github.com/jacobrosenthal/ssd1680/blob/master/examples)
 //!
 //! ## Set individual pixels with `.set_pixel()`
 //!
 //! ```rust
-//! # use ssd1331::test_helpers::{Spi, Pin};
+//! # use ssd1680::test_helpers::{Spi, Pin};
 //! use embedded_graphics::{
 //!     pixelcolor::{
 //!         raw::{RawData, RawU16},
@@ -25,13 +25,13 @@
 //!     },
 //!     prelude::*,
 //! };
-//! use ssd1331::{DisplayRotation::Rotate0, Ssd1331};
+//! use ssd1680::{DisplayRotation::Rotate0, Ssd1680};
 //!
 //! // Set up SPI interface and digital pin. These are stub implementations used in examples.
 //! let spi = Spi;
 //! let dc = Pin;
 //!
-//! let mut display = Ssd1331::new(spi, dc, Rotate0);
+//! let mut display = Ssd1680::new(spi, dc, Rotate0);
 //! display.init();
 //!
 //! // Use raw hex values
@@ -45,16 +45,16 @@
 //! ## Render a rainbow Rust logo
 //!
 //! ```rust
-//! # use ssd1331::test_helpers::{Spi, Pin};
+//! # use ssd1680::test_helpers::{Spi, Pin};
 //! use embedded_graphics::{geometry::Point, image::Image, pixelcolor::Rgb565, prelude::*};
-//! use ssd1331::{DisplayRotation::Rotate0, Ssd1331};
+//! use ssd1680::{DisplayRotation::Rotate0, Ssd1680};
 //! use tinybmp::Bmp;
 //!
 //! // Set up SPI interface and digital pin. These are stub implementations used in examples.
 //! let spi = Spi;
 //! let dc = Pin;
 //!
-//! let mut display = Ssd1331::new(spi, dc, Rotate0);
+//! let mut display = Ssd1680::new(spi, dc, Rotate0);
 //! display.init().unwrap();
 //! display.flush().unwrap();
 //!
@@ -81,12 +81,12 @@
 //! ## `graphics` (enabled by default)
 //!
 //! Enable the `graphics` feature in `Cargo.toml` to get access to features in the
-//! [`embedded-graphics`] crate. This adds the `.draw()` method to the [`Ssd1331`] struct which
+//! [`embedded-graphics`] crate. This adds the `.draw()` method to the [`Ssd1680`] struct which
 //! accepts any `embedded-graphics` compatible item.
 //!
 //! [embedded-hal]: https://docs.rs/embedded-hal
 //! [`blocking::spi::Write`]: https://docs.rs/embedded-hal/0.2.3/embedded_hal/blocking/spi/trait.Write.html
-//! [`Ssd1331`]: ./struct.Ssd1331.html
+//! [`Ssd1680`]: ./struct.Ssd1680.html
 //! [`embedded-graphics`]: https://docs.rs/embedded-graphics
 
 #![no_std]
@@ -113,4 +113,4 @@ mod error;
 #[doc(hidden)]
 pub mod test_helpers;
 
-pub use crate::{display::Ssd1331, displayrotation::DisplayRotation, error::Error};
+pub use crate::{display::Ssd1680, displayrotation::DisplayRotation, error::Error};

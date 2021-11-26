@@ -1,14 +1,13 @@
-# SSD1331 driver
+# SSD1680 driver
 
-[![Build Status](https://circleci.com/gh/jamwaffles/ssd1331/tree/master.svg?style=shield)](https://circleci.com/gh/jamwaffles/ssd1331/tree/master)
-[![Crates.io](https://img.shields.io/crates/v/ssd1331.svg)](https://crates.io/crates/ssd1331)
-[![Docs.rs](https://docs.rs/ssd1331/badge.svg)](https://docs.rs/ssd1331)
+[![Crates.io](https://img.shields.io/crates/v/ssd1680.svg)](https://crates.io/crates/ssd1680)
+[![Docs.rs](https://docs.rs/ssd1680/badge.svg)](https://docs.rs/ssd1680)
 
-[![SSD1331 display showing Ferris](readme_banner.jpg?raw=true)](examples/image.rs)
+[![SSD1680 display showing Ferris](readme_banner.jpg?raw=true)](examples/image.rs)
 
-SPI (4 wire) driver for the SSD1331 OLED display.
+SPI (4 wire) driver for the SSD1680 OLED display.
 
-<!-- See the [announcement blog post](https://wapl.es/electronics/rust/2018/04/30/ssd1331-driver.html) for more information. -->
+<!-- See the [announcement blog post](https://wapl.es/electronics/rust/2018/04/30/ssd1680-driver.html) for more information. -->
 
 The display is configured by this driver to use a 16 bit, R5 G6 B5 pixel definition.
 You can convert images into the correct BMP format with the following commands:
@@ -27,18 +26,18 @@ You can also export images directly from The GIMP by saving as `.bmp` and choosi
 
 ![The GIMP RGB565 export option.](readme_gimp_export.png?raw=true)
 
-## [Documentation](https://docs.rs/ssd1331)
+## [Documentation](https://docs.rs/ssd1680)
 
 ## [Examples](examples)
 
-Examples are stored in per target directories in ssd1331-examples. cd to your preferred example
+Examples are stored in per target directories in ssd1680-examples. cd to your preferred example
 
-`cd ssd1331-examples/stm32f1-examples/`
+`cd ssd1680-examples/stm32f1-examples/`
 
 This crate uses [`probe-run`](https://crates.io/crates/probe-run) to run the examples. Once set up, it should be as simple as `cargo run --example <example name> --release`. `--release` will be required for some examples to reduce FLASH usage.
 
 Load a BMP image of the Rust logo and display it in the center of the display. From
-[`ssd1331-examples/stm32f1-examples/bmp.rs`](examples/bmp.rs):
+[`ssd1680-examples/stm32f1-examples/bmp.rs`](examples/bmp.rs):
 
 ```rust
 #![no_std]
@@ -47,7 +46,7 @@ Load a BMP image of the Rust logo and display it in the center of the display. F
 use cortex_m_rt::{entry, exception, ExceptionFrame};
 use embedded_graphics::{geometry::Point, image::Image, pixelcolor::Rgb565, prelude::*};
 use panic_semihosting as _;
-use ssd1331::{DisplayRotation, Ssd1331};
+use ssd1680::{DisplayRotation, Ssd1680};
 use stm32f1xx_hal::{
     delay::Delay,
     prelude::*,
@@ -88,7 +87,7 @@ fn main() -> ! {
         &mut rcc.apb2,
     );
 
-    let mut disp = Ssd1331::new(spi, dc, DisplayRotation::Rotate0);
+    let mut disp = Ssd1680::new(spi, dc, DisplayRotation::Rotate0);
 
     disp.reset(&mut rst, &mut delay).unwrap();
     disp.init().unwrap();
@@ -121,40 +120,6 @@ fn HardFault(ef: &ExceptionFrame) -> ! {
 ```
 
 ![Rust rainbow demo image.](readme_pride.jpg?raw=true)
-
-## Migrating from 0.1 to 0.2
-
-The full changelog can be found [here](CHANGELOG.md). A tl;dr version is shown below.
-
-Version 0.1.x
-
-```rust
-use ssd1331::{prelude::*, Builder};
-
-let mut disp: GraphicsMode<_> = Builder::new().connect_spi(spi, dc).into();
-
-disp.reset(&mut rst, &mut delay);
-disp.init().unwrap();
-disp.flush().unwrap();
-
-disp.get_dimensions();
-disp.get_rotation();
-```
-
-Version 0.2.x
-
-```rust
-use ssd1331::{Ssd1331, DisplayRotation};
-
-let mut disp = Ssd1331::new(spi, dc, DisplayRotation::Rotate0);
-
-disp.reset(&mut rst, &mut delay).unwrap();
-disp.init().unwrap();
-disp.flush().unwrap();
-
-disp.dimensions();
-disp.rotation();
-```
 
 ## License
 

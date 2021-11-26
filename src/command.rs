@@ -1,9 +1,9 @@
-// Shamefully taken from https://github.com/EdgewaterDevelopment/rust-ssd1331
+// Shamefully taken from https://github.com/EdgewaterDevelopment/rust-ssd1680
 
 use crate::error::Error;
 use embedded_hal::digital::v2::OutputPin;
 
-/// SSD1331 Commands
+/// SSD1680 Commands
 #[derive(Debug)]
 #[allow(dead_code)]
 pub enum Command {
@@ -50,7 +50,7 @@ pub enum Command {
 }
 
 impl Command {
-    /// Send command to SSD1331
+    /// Send command to SSD1680
     #[cfg(feature = "embassy-async")]
     pub async fn send_async<SPI, DC, CommE, PinE>(
         self,
@@ -119,7 +119,7 @@ impl Command {
         spi.write(&data[0..len]).await.map_err(Error::Comm)
     }
 
-    /// Send command to SSD1331
+    /// Send command to SSD1680
     pub fn send<SPI, DC, CommE, PinE>(
         self,
         spi: &mut SPI,

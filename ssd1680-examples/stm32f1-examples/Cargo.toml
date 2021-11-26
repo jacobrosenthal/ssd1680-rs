@@ -12,7 +12,7 @@ embedded-graphics = "0.7.1"
 tinybmp = "0.3.1"
 stm32f1xx-hal = { version = "0.7.0", features = ["rt", "stm32f103"] }
 panic-semihosting = "0.5.3"
-ssd1331 = { path = "../../" }
+ssd1680 = { path = "../../" }
 
 [profile.dev]
 codegen-units = 1

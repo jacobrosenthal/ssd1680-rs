@@ -1,4 +1,4 @@
-//! Draw a colourful Rust logo on an SSD1331 display over SPI
+//! Draw a colourful Rust logo on an SSD1680 display over SPI
 //!
 //! Image was exported with The GIMP. Export as `*.bmp` and use the 16 bit "R5 G6 B5" option under
 //! "advanced options".
@@ -25,7 +25,7 @@
 use cortex_m_rt::{entry, exception, ExceptionFrame};
 use embedded_graphics::{geometry::Point, image::Image, pixelcolor::Rgb565, prelude::*};
 use panic_semihosting as _;
-use ssd1331::{DisplayRotation, Ssd1331};
+use ssd1680::{DisplayRotation, Ssd1680};
 use stm32f1xx_hal::{
     delay::Delay,
     prelude::*,
@@ -72,7 +72,7 @@ fn main() -> ! {
         &mut rcc.apb2,
     );
 
-    let mut display = Ssd1331::new(spi, dc, DisplayRotation::Rotate0);
+    let mut display = Ssd1680::new(spi, dc, DisplayRotation::Rotate0);
 
     display.reset(&mut rst, &mut delay).unwrap();
     display.init().unwrap();

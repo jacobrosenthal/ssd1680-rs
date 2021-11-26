@@ -22,8 +22,8 @@ cargo test --doc --target x86_64-unknown-linux-gnu
 
 if [ -z $DISABLE_EXAMPLES ]; then
     # todo list of example directories in metadata so other
-    (cd ssd1331-examples/stm32f1-examples && cargo build --examples)
-    (cd ssd1331-examples/embassy-nrf && cargo build --examples)
+    (cd ssd1680-examples/stm32f1-examples && cargo build --examples)
+    (cd ssd1680-examples/embassy-nrf && cargo build --examples)
 fi
 
 # Remove stale docs - the linkchecker might miss links to old files if they're not removed
@@ -33,4 +33,4 @@ cargo clean --doc --target $TARGET
 # todo not building all features
 cargo doc --target $TARGET
 
-linkchecker target/$TARGET/doc/ssd1331/index.html
+linkchecker target/$TARGET/doc/ssd1680/index.html

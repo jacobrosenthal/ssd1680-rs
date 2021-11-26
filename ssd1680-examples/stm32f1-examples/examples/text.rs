@@ -1,10 +1,5 @@
-//! Draw the Rust logo centered on a 90 degree rotated 128x64px display
-//!
-//! Image was created with ImageMagick:
-//!
-//! ```bash
-//! convert rust.png -depth 1 gray:rust.raw
-//! ```
+//! Print "Hello world!" with "Hello rust!" underneath. Uses the `embedded_graphics` crate to draw
+//! the text with a 6x10 and 9x18 pixel monospace font.
 //!
 //! This example is for the STM32F103 "Blue Pill" board using a 4 wire interface to the display on
 //! SPI1.
@@ -20,15 +15,24 @@
 //! PB1 -> D/C
 //! ```
 //!
-//! Run on a Blue Pill with `cargo run --release --example rotation`.
+//! Run on a Blue Pill with `cargo run --release --example text`.
 
 #![no_std]
 #![no_main]
 
 use cortex_m_rt::{entry, exception, ExceptionFrame};
-use embedded_graphics::{image::ImageRawLE, pixelcolor::BinaryColor, prelude::*};
+use embedded_graphics::{
+    geometry::Point,
+    mono_font::{
+        ascii::{FONT_6X10, FONT_9X18},
+        MonoTextStyleBuilder,
+    },
+    pixelcolor::Rgb565,
+    prelude::*,
+    text::{Baseline, Text},
+};
 use panic_semihosting as _;
-use ssd1331::{DisplayRotation, Ssd1331};
+use ssd1680::{DisplayRotation::Rotate0, Ssd1680};
 use stm32f1xx_hal::{
     delay::Delay,
     prelude::*,
@@ -74,23 +78,36 @@ fn main() -> ! {
         &mut rcc.apb2,
     );
 
-    // Initialise the display with a default rotation of 90 degrees
-    let mut display = Ssd1331::new(spi, dc, DisplayRotation::Rotate90);
+    let mut display = Ssd1680::new(spi, dc, Rotate0);
 
     display.reset(&mut rst, &mut delay).unwrap();
     display.init().unwrap();
     display.flush().unwrap();
 
-    // Set a new rotation of 270 degrees
-    display.set_rotation(DisplayRotation::Rotate270).unwrap();
+    let white_style = MonoTextStyleBuilder::new()
+        .font(&FONT_6X10)
+        .text_color(Rgb565::WHITE)
+        .build();
 
-    // Load a 1BPP 64x64px image with LE (Little Endian) encoding of the Rust logo, white foreground
-    // black background
-    let im = ImageRawLE::<BinaryColor>::new(include_bytes!("../../../assets/rust.raw"), 64);
+    Text::with_baseline("Hello world!", Point::zero(), white_style, Baseline::Top)
+        .draw(&mut display)
+        .unwrap();
 
-    // Use `color_converted` to create a wrapper that converts BinaryColors to Rgb565 colors to send
-    // to the display.
-    im.draw(&mut display.color_converted()).unwrap();
+    // Red with a small amount of green creates a deep orange colour
+    let rust_style = MonoTextStyleBuilder::new()
+        .font(&FONT_9X18)
+        .text_color(Rgb565::new(0xff, 0x07, 0x00))
+        .build();
+
+    Text::with_baseline(
+        "Hello Rust!",
+        // Position this text below "Hello world!", using the previous font's height
+        Point::new(0, white_style.font.character_size.height as i32),
+        rust_style,
+        Baseline::Top,
+    )
+    .draw(&mut display)
+    .unwrap();
 
     display.flush().unwrap();
 

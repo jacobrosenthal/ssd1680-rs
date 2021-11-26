@@ -1,23 +1,19 @@
 [package]
-authors = ["James Waples <james@wapl.es>"]
+authors = ["Jacob Rosenthal", "James Waples <james@wapl.es>"]
 categories = ["embedded", "no-std"]
-description = "I2C/SPI driver for the SSD1331 OLED display controller"
-documentation = "https://docs.rs/ssd1331"
-exclude = [".travis.yml", ".gitignore"]
-keywords = ["no-std", "ssd1331", "oled", "embedded", "embedded-hal-driver"]
+description = "I2C/SPI driver for the SSD1680 OLED display controller"
+documentation = "https://docs.rs/ssd1680"
+keywords = ["no-std", "ssd1680", "oled", "embedded", "embedded-hal-driver"]
 license = "MIT OR Apache-2.0"
-name = "ssd1331"
+name = "ssd1680"
 readme = "README.md"
-repository = "https://github.com/jamwaffles/ssd1331"
+repository = "https://github.com/jacobrosenthal/ssd1680"
 version = "0.3.0"
 edition = "2018"
 
 [package.metadata.docs.rs]
 targets = ["thumbv7m-none-eabi"]
 all-features = true
-
-[badges]
-circle-ci = { repository = "jamwaffles/ssd1331", branch = "master" }
 
 [dependencies]
 embedded-hal = "0.2.3"

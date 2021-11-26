@@ -10,7 +10,7 @@ use crate::{
 /// 96px x 64px screen with 16 bits (2 bytes) per pixel
 const BUF_SIZE: usize = 96 * 64 * 2;
 
-/// SSD1331 display interface
+/// SSD1680 display interface
 ///
 /// # Examples
 ///
@@ -31,14 +31,14 @@ const BUF_SIZE: usize = 96 * 64 * 2;
 ///     primitives::{Circle, Line, PrimitiveStyle, Rectangle, Triangle},
 ///     text::{Baseline, Text},
 /// };
-/// use ssd1331::{DisplayRotation::Rotate0, Ssd1331};
-/// # use ssd1331::test_helpers::{Pin, Spi};
+/// use ssd1680::{DisplayRotation::Rotate0, Ssd1680};
+/// # use ssd1680::test_helpers::{Pin, Spi};
 ///
 /// // Set up SPI interface and digital pin. These are stub implementations used in examples.
 /// let spi = Spi;
 /// let dc = Pin;
 ///
-/// let mut display = Ssd1331::new(spi, dc, Rotate0);
+/// let mut display = Ssd1680::new(spi, dc, Rotate0);
 /// let raw = ImageRawLE::new(include_bytes!("../assets/ferris.raw"), 86);
 ///
 /// let image: Image<ImageRawLE<Rgb565>> = Image::new(&raw, Point::zero());
@@ -83,7 +83,7 @@ const BUF_SIZE: usize = 96 * 64 * 2;
 /// ```
 ///
 /// [`embedded-graphics`]: https://crates.io/crates/embedded-graphics
-pub struct Ssd1331<SPI, DC> {
+pub struct Ssd1680<SPI, DC> {
     /// Pixel buffer
     ///
     /// The display is 16BPP RGB565, so two `u8`s are used for each pixel value
@@ -100,7 +100,7 @@ pub struct Ssd1331<SPI, DC> {
 }
 
 #[cfg(feature = "embassy-async")]
-impl<SPI, DC, CommE, PinE> Ssd1331<SPI, DC>
+impl<SPI, DC, CommE, PinE> Ssd1680<SPI, DC>
 where
     SPI: embassy_traits::spi::Write<u8> + embassy_traits::spi::Spi<u8, Error = CommE>,
     DC: OutputPin<Error = PinE>,
@@ -129,7 +129,7 @@ where
     }
 }
 
-impl<SPI, DC, CommE, PinE> Ssd1331<SPI, DC>
+impl<SPI, DC, CommE, PinE> Ssd1680<SPI, DC>
 where
     SPI: hal::blocking::spi::Write<u8, Error = CommE>,
     DC: OutputPin<Error = PinE>,
@@ -146,14 +146,14 @@ where
     /// ## Create a display instance with no rotation
     ///
     /// ```rust
-    /// # use ssd1331::test_helpers::{Pin, Spi};
-    /// use ssd1331::{DisplayRotation::Rotate0, Ssd1331};
+    /// # use ssd1680::test_helpers::{Pin, Spi};
+    /// use ssd1680::{DisplayRotation::Rotate0, Ssd1680};
     ///
     /// // Set up SPI interface and digital pin. These are stub implementations used in examples.
     /// let spi = Spi;
     /// let dc = Pin;
     ///
-    /// let mut display = Ssd1331::new(spi, dc, Rotate0);
+    /// let mut display = Ssd1680::new(spi, dc, Rotate0);
     ///
     /// // Initialise and clear the display
     /// display.init().unwrap();
@@ -289,14 +289,14 @@ where
     /// ## No rotation
     ///
     /// ```rust
-    /// # use ssd1331::test_helpers::{Spi, Pin};
-    /// use ssd1331::{DisplayRotation, Ssd1331};
+    /// # use ssd1680::test_helpers::{Spi, Pin};
+    /// use ssd1680::{DisplayRotation, Ssd1680};
     ///
     /// // Set up SPI interface and digital pin. These are stub implementations used in examples.
     /// let spi = Spi;
     /// let dc = Pin;
     ///
-    /// let display = Ssd1331::new(spi, dc, DisplayRotation::Rotate0);
+    /// let display = Ssd1680::new(spi, dc, DisplayRotation::Rotate0);
     ///
     /// assert_eq!(display.dimensions(), (96, 64));
     /// ```
@@ -304,14 +304,14 @@ where
     /// ## 90 degree rotation rotation
     ///
     /// ```rust
-    /// # use ssd1331::test_helpers::{Spi, Pin};
-    /// use ssd1331::{DisplayRotation, Ssd1331};
+    /// # use ssd1680::test_helpers::{Spi, Pin};
+    /// use ssd1680::{DisplayRotation, Ssd1680};
     ///
     /// // Set up SPI interface and digital pin. These are stub implementations used in examples.
     /// let spi = Spi;
     /// let dc = Pin;
     ///
-    /// let display = Ssd1331::new(spi, dc, DisplayRotation::Rotate90);
+    /// let display = Ssd1680::new(spi, dc, DisplayRotation::Rotate90);
     ///
     /// assert_eq!(display.dimensions(), (64, 96));
     /// ```
@@ -401,7 +401,7 @@ use embedded_graphics_core::{
 };
 
 #[cfg(feature = "graphics")]
-impl<SPI, DC> DrawTarget for Ssd1331<SPI, DC>
+impl<SPI, DC> DrawTarget for Ssd1680<SPI, DC>
 where
     SPI: hal::blocking::spi::Write<u8>,
     DC: OutputPin,
@@ -427,7 +427,7 @@ where
 }
 
 #[cfg(feature = "graphics")]
-impl<SPI, DC> OriginDimensions for Ssd1331<SPI, DC>
+impl<SPI, DC> OriginDimensions for Ssd1680<SPI, DC>
 where
     SPI: hal::blocking::spi::Write<u8>,
     DC: OutputPin,
