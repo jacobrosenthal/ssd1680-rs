@@ -1,7 +1,35 @@
 //! The rust-toolchain will pull in the correct nightly and target so all you
-//! need to run is 
+//! need to run is
 //!
-//! cargo run --release
+//! Feather xenon
+//! https://docs.particle.io/datasheets/discontinued/xenon-datasheet/
+//! https://docs.particle.io/assets/images/xenon/xenon-pinout-v1.0.pdf
+//! https://docs.particle.io/assets/images/xenon/xenon-block-diagram.png
+//!
+//! antenna selection
+//! p025 = 0, p0.24 = 1 pcb antenna
+//! p025 = 1, p0.24 = 0 external u.fl
+//!
+//! p0.13 red rgb
+//! p0.14 green rgb
+//! p0.15 blue rgb
+//! p0.11 button
+//! p1.12 blue led
+//!
+//! p9.27 scl
+//! p0.26 sda
+//!
+//! ssd1680
+//! p1.10 dc
+//! p1.08 ecs
+//! p1.02 srcs
+//! p1.01 sd cs
+//!
+//! p0.31 ss
+//! p1.15 sck
+//! p1.13 mosi
+//!
+//! cargo run --release --example bmp
 //!
 #![no_main]
 #![no_std]
@@ -30,27 +58,27 @@ fn main() -> ! {
     // provides the peripherals from the async first pac if you selected it
     let dp = embassy_nrf::init(Default::default());
 
-    let green = gpio::Output::new(
+    let blue = gpio::Output::new(
         // degrade just a typesystem hack to forget which pin it is so we can
         // call it Anypin and make our function calls more generic
-        dp.P0_22.degrade(),
+        dp.P1_12.degrade(),
         gpio::Level::High,
         gpio::OutputDrive::Standard,
     );
 
     // spawn tasks
     executor.run(|spawner| {
-        let _ = spawner.spawn(blinky_task(green));
-        let _ = spawner.spawn(display_task());
+        let _ = spawner.spawn(blinky_task(blue));
+        // let _ = spawner.spawn(display_task());
     })
 }
 
 #[embassy::task]
-async fn blinky_task(mut green: gpio::Output<'static, AnyPin>) {
+async fn blinky_task(mut led: gpio::Output<'static, AnyPin>) {
     loop {
-        green.set_high().unwrap();
+        led.set_high().unwrap();
         Timer::after(Duration::from_millis(300)).await;
-        green.set_low().unwrap();
+        led.set_low().unwrap();
         Timer::after(Duration::from_millis(1000)).await;
     }
 }
@@ -70,25 +98,29 @@ pub async fn display_task() {
     let spim = spim::Spim::new(
         &mut dp.SPI3,
         &mut spim_irq,
-        &mut dp.P0_21,
+        &mut dp.P1_15,
         NoPin,
-        &mut dp.P0_17,
+        &mut dp.P1_13,
         spim_config,
     );
 
-    let mut rst = Output::new(&mut dp.P0_16, Level::High, OutputDrive::Standard);
-    let dc = Output::new(&mut dp.P0_15, Level::High, OutputDrive::Standard);
+    // p0.31 ss
+    // p1.08 ecs
+    let dc = Output::new(&mut dp.P1_10, Level::High, OutputDrive::Standard);
     let mut display = Ssd1680::new(spim, dc, DisplayRotation::Rotate0);
-    Timer::after(Duration::from_millis(1)).await;
-    rst.set_low().ok();
-    Timer::after(Duration::from_millis(1)).await;
-    rst.set_high().ok();
+
+    // let mut rst = Output::new(&mut dp.P1_08, Level::High, OutputDrive::Standard);
+    // Timer::after(Duration::from_millis(1)).await;
+    // rst.set_low().ok();
+    // Timer::after(Duration::from_millis(1)).await;
+    // rst.set_high().ok();
+
     display.init().unwrap();
 
     let (w, h) = display.dimensions();
 
-    let bmp =
-        Bmp::from_slice(include_bytes!("../../../assets/rust-pride.bmp")).expect("Failed to load BMP image");
+    let bmp = Bmp::from_slice(include_bytes!("../../../assets/rust-pride.bmp"))
+        .expect("Failed to load BMP image");
 
     let im: Image<Bmp<Rgb565>> = Image::new(&bmp, Point::zero());
 
