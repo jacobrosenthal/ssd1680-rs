@@ -1,11 +1,9 @@
-/// Enum of errors in this crate
-///
-/// Both error types `CommE` and `PinE` default to `()`
-#[derive(Debug)]
-pub enum Error<CommE = (), PinE = ()> {
-    /// Communication error
-    Comm(CommE),
+use core::convert::Infallible;
 
+#[derive(Debug)]
+pub enum Error<E = ()> {
+    /// Communication error
+    Comm(E),
     /// Pin setting error
-    Pin(PinE),
+    Pin(Infallible),
 }

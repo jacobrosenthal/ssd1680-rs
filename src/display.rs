@@ -1,412 +1,246 @@
-use hal::{blocking::delay::DelayMs, digital::v2::OutputPin};
-
 use crate::{
-    command::{AddressIncrementMode, ColorMode, Command, VcomhLevel},
-    displayrotation::DisplayRotation,
-    error::Error,
-    DISPLAY_HEIGHT, DISPLAY_WIDTH,
+    command::Command, displayrotation::DisplayRotation, error::Error, DISPLAY_HEIGHT, DISPLAY_WIDTH,
 };
 
-/// 96px x 64px screen with 16 bits (2 bytes) per pixel
-const BUF_SIZE: usize = 96 * 64 * 2;
-
-/// SSD1680 display interface
-///
-/// # Examples
-///
-/// ## Draw shapes and text with [`embedded-graphics`]
-///
-/// This requires the `graphics` feature to be enabled (on by default).
-///
-/// ```rust
-/// use embedded_graphics::{
-///     geometry::Point,
-///     image::{Image, ImageRawLE},
-///     mono_font::{
-///         ascii::{FONT_6X10, FONT_9X18},
-///         MonoTextStyleBuilder,
-///     },
-///     pixelcolor::Rgb565,
-///     prelude::*,
-///     primitives::{Circle, Line, PrimitiveStyle, Rectangle, Triangle},
-///     text::{Baseline, Text},
-/// };
-/// use ssd1680::{DisplayRotation::Rotate0, Ssd1680};
-/// # use ssd1680::test_helpers::{Pin, Spi};
-///
-/// // Set up SPI interface and digital pin. These are stub implementations used in examples.
-/// let spi = Spi;
-/// let dc = Pin;
-///
-/// let mut display = Ssd1680::new(spi, dc, Rotate0);
-/// let raw = ImageRawLE::new(include_bytes!("../assets/ferris.raw"), 86);
-///
-/// let image: Image<ImageRawLE<Rgb565>> = Image::new(&raw, Point::zero());
-///
-/// // Initialise and clear the display
-/// display.init().unwrap();
-/// display.flush().unwrap();
-///
-/// Triangle::new(
-///     Point::new(8, 16 + 16),
-///     Point::new(8 + 16, 16 + 16),
-///     Point::new(8 + 8, 16),
-/// )
-/// .into_styled(PrimitiveStyle::with_stroke(Rgb565::RED, 1))
-/// .draw(&mut display)
-/// .unwrap();
-///
-/// Rectangle::with_corners(Point::new(36, 16), Point::new(36 + 16, 16 + 16))
-///     .into_styled(PrimitiveStyle::with_stroke(Rgb565::GREEN, 1))
-///     .draw(&mut display)
-///     .unwrap();
-///
-/// Circle::new(Point::new(64, 16), 16)
-///     .into_styled(PrimitiveStyle::with_stroke(Rgb565::BLUE, 1))
-///     .draw(&mut display)
-///     .unwrap();
-///
-/// image.draw(&mut display);
-///
-/// // Red with a small amount of green creates a deep orange colour
-/// let rust_style = MonoTextStyleBuilder::new()
-///     .font(&FONT_9X18)
-///     .text_color(Rgb565::RED)
-///     .build();
-///
-/// Text::with_baseline("Hello Rust!", Point::new(0, 0), rust_style, Baseline::Top)
-///     .draw(&mut display)
-///     .unwrap();
-///
-/// // Render graphics objects to the screen
-/// display.flush().unwrap();
-/// ```
-///
-/// [`embedded-graphics`]: https://crates.io/crates/embedded-graphics
-pub struct Ssd1680<SPI, DC> {
-    /// Pixel buffer
-    ///
-    /// The display is 16BPP RGB565, so two `u8`s are used for each pixel value
-    buffer: [u8; BUF_SIZE],
-
-    /// Which display rotation to use
-    display_rotation: DisplayRotation,
-
-    /// SPI interface
-    spi: SPI,
-
-    /// Data/Command pin
-    dc: DC,
-}
-
-#[cfg(feature = "embassy-async")]
-impl<SPI, DC, CommE, PinE> Ssd1680<SPI, DC>
-where
-    SPI: embassy_traits::spi::Write<u8> + embassy_traits::spi::Spi<u8, Error = CommE>,
-    DC: OutputPin<Error = PinE>,
-{
-    /// Send the full framebuffer to the display
-    ///
-    /// This resets the draw area the full size of the display
-    pub async fn flush_async(&mut self) -> Result<(), Error<CommE, PinE>> {
-        // Ensure the display buffer is at the origin of the display before we send the full frame
-        // to prevent accidental offsets
-        // self.set_draw_area((0, 0), (DISPLAY_WIDTH - 1, DISPLAY_HEIGHT - 1))?;
-
-        Command::ColumnAddress(0, DISPLAY_WIDTH - 1)
-            .send_async(&mut self.spi, &mut self.dc)
-            .await?;
-        Command::RowAddress(0.into(), (DISPLAY_HEIGHT - 1).into())
-            .send_async(&mut self.spi, &mut self.dc)
-            .await?;
-
-        // 1 = data, 0 = command
-        self.dc.set_high().map_err(Error::Pin)?;
-
-        embassy_traits::spi::Write::write(&mut self.spi, &self.buffer)
-            .await
-            .map_err(Error::Comm)
-    }
-}
-
-impl<SPI, DC, CommE, PinE> Ssd1680<SPI, DC>
-where
-    SPI: hal::blocking::spi::Write<u8, Error = CommE>,
-    DC: OutputPin<Error = PinE>,
-{
-    /// Create new display instance
-    ///
-    /// Ensure `display.init()` is called before sending data otherwise nothing will be shown.
-    ///
-    /// The driver allocates a buffer of 96px * 64px * 16bits = 12,288 bytes. This may be too large
-    /// for some target hardware.
-    ///
-    /// # Examples
-    ///
-    /// ## Create a display instance with no rotation
-    ///
-    /// ```rust
-    /// # use ssd1680::test_helpers::{Pin, Spi};
-    /// use ssd1680::{DisplayRotation::Rotate0, Ssd1680};
-    ///
-    /// // Set up SPI interface and digital pin. These are stub implementations used in examples.
-    /// let spi = Spi;
-    /// let dc = Pin;
-    ///
-    /// let mut display = Ssd1680::new(spi, dc, Rotate0);
-    ///
-    /// // Initialise and clear the display
-    /// display.init().unwrap();
-    /// display.flush().unwrap();
-    /// ```
-    pub fn new(spi: SPI, dc: DC, display_rotation: DisplayRotation) -> Self {
-        Self {
-            spi,
-            dc,
-            display_rotation,
-            buffer: [0; BUF_SIZE],
-        }
-    }
-
-    /// Release SPI and DC resources for reuse in other code
-    pub fn release(self) -> (SPI, DC) {
-        (self.spi, self.dc)
-    }
-
-    /// Clear the display buffer
-    ///
-    /// `display.flush()` must be called to update the display
-    pub fn clear(&mut self) {
-        self.buffer = [0; BUF_SIZE];
-    }
-
-    /// Reset the display
-    ///
-    /// This method brings the RST pin low for 1ms to reset the module,  waits for another 1ms then
-    /// brings RST high
-    pub fn reset<RST, DELAY>(
-        &mut self,
-        rst: &mut RST,
-        delay: &mut DELAY,
-    ) -> Result<(), Error<CommE, PinE>>
-    where
-        RST: OutputPin<Error = PinE>,
-        DELAY: DelayMs<u8>,
-    {
-        rst.set_high().map_err(Error::Pin)?;
-        delay.delay_ms(1);
-        rst.set_low().map_err(Error::Pin)?;
-        delay.delay_ms(1);
-        rst.set_high().map_err(Error::Pin)?;
-
-        Ok(())
-    }
-
-    /// Send the full framebuffer to the display
-    ///
-    /// This resets the draw area the full size of the display
-    pub fn flush(&mut self) -> Result<(), Error<CommE, PinE>> {
-        // Ensure the display buffer is at the origin of the display before we send the full frame
-        // to prevent accidental offsets
-        self.set_draw_area((0, 0), (DISPLAY_WIDTH - 1, DISPLAY_HEIGHT - 1))?;
-
-        // 1 = data, 0 = command
-        self.dc.set_high().map_err(Error::Pin)?;
-
-        self.spi.write(&self.buffer).map_err(Error::Comm)?;
-
-        Ok(())
-    }
-
-    /// Set the top left and bottom right corners of a bounding box to draw to
-    pub fn set_draw_area(
-        &mut self,
-        start: (u8, u8),
-        end: (u8, u8),
-    ) -> Result<(), Error<CommE, PinE>> {
-        Command::ColumnAddress(start.0, end.0).send(&mut self.spi, &mut self.dc)?;
-        Command::RowAddress(start.1.into(), (end.1).into()).send(&mut self.spi, &mut self.dc)?;
-        Ok(())
-    }
-
-    /// Set the value for an individual pixel.
-    pub fn set_pixel(&mut self, x: u32, y: u32, value: u16) {
-        let idx = match self.display_rotation {
-            DisplayRotation::Rotate0 | DisplayRotation::Rotate180 => {
-                if x >= DISPLAY_WIDTH as u32 {
-                    return;
-                }
-                ((y as usize) * DISPLAY_WIDTH as usize) + (x as usize)
-            }
-
-            DisplayRotation::Rotate90 | DisplayRotation::Rotate270 => {
-                if y >= DISPLAY_WIDTH as u32 {
-                    return;
-                }
-                ((y as usize) * DISPLAY_HEIGHT as usize) + (x as usize)
-            }
-        } * 2;
-
-        if idx >= self.buffer.len() - 1 {
-            return;
-        }
-
-        // Split 16 bit value into two bytes
-        let low = (value & 0xff) as u8;
-        let high = ((value & 0xff00) >> 8) as u8;
-
-        self.buffer[idx] = high;
-        self.buffer[idx + 1] = low;
-    }
-
-    /// Initialise display, setting sensible defaults and rotation
-    pub fn init(&mut self) -> Result<(), Error<CommE, PinE>> {
-        let display_rotation = self.display_rotation;
-
-        Command::DisplayOn(false).send(&mut self.spi, &mut self.dc)?;
-        Command::DisplayClockDiv(0xF, 0x0).send(&mut self.spi, &mut self.dc)?;
-        Command::Multiplex(DISPLAY_HEIGHT - 1).send(&mut self.spi, &mut self.dc)?;
-        Command::StartLine(0).send(&mut self.spi, &mut self.dc)?;
-        Command::DisplayOffset(0).send(&mut self.spi, &mut self.dc)?;
-
-        self.set_rotation(display_rotation)?;
-
-        // Values taken from [here](https://github.com/adafruit/Adafruit-SSD1331-OLED-Driver-Library-for-Arduino/blob/master/Adafruit_SSD1331.cpp#L119-L124)
-        Command::Contrast(0x91, 0x50, 0x7D).send(&mut self.spi, &mut self.dc)?;
-        Command::PreChargePeriod(0x1, 0xF).send(&mut self.spi, &mut self.dc)?;
-        Command::VcomhDeselect(VcomhLevel::V071).send(&mut self.spi, &mut self.dc)?;
-        Command::AllOn(false).send(&mut self.spi, &mut self.dc)?;
-        Command::Invert(false).send(&mut self.spi, &mut self.dc)?;
-        Command::DisplayOn(true).send(&mut self.spi, &mut self.dc)?;
-
-        Ok(())
-    }
-
-    /// Get display dimensions, taking into account the current rotation of the display
-    ///
-    /// # Examples
-    ///
-    /// ## No rotation
-    ///
-    /// ```rust
-    /// # use ssd1680::test_helpers::{Spi, Pin};
-    /// use ssd1680::{DisplayRotation, Ssd1680};
-    ///
-    /// // Set up SPI interface and digital pin. These are stub implementations used in examples.
-    /// let spi = Spi;
-    /// let dc = Pin;
-    ///
-    /// let display = Ssd1680::new(spi, dc, DisplayRotation::Rotate0);
-    ///
-    /// assert_eq!(display.dimensions(), (96, 64));
-    /// ```
-    ///
-    /// ## 90 degree rotation rotation
-    ///
-    /// ```rust
-    /// # use ssd1680::test_helpers::{Spi, Pin};
-    /// use ssd1680::{DisplayRotation, Ssd1680};
-    ///
-    /// // Set up SPI interface and digital pin. These are stub implementations used in examples.
-    /// let spi = Spi;
-    /// let dc = Pin;
-    ///
-    /// let display = Ssd1680::new(spi, dc, DisplayRotation::Rotate90);
-    ///
-    /// assert_eq!(display.dimensions(), (64, 96));
-    /// ```
-    pub fn dimensions(&self) -> (u8, u8) {
-        match self.display_rotation {
-            DisplayRotation::Rotate0 | DisplayRotation::Rotate180 => {
-                (DISPLAY_WIDTH, DISPLAY_HEIGHT)
-            }
-            DisplayRotation::Rotate90 | DisplayRotation::Rotate270 => {
-                (DISPLAY_HEIGHT, DISPLAY_WIDTH)
-            }
-        }
-    }
-
-    /// Set the display rotation
-    pub fn set_rotation(&mut self, rot: DisplayRotation) -> Result<(), Error<CommE, PinE>> {
-        self.display_rotation = rot;
-
-        match rot {
-            DisplayRotation::Rotate0 => {
-                Command::RemapAndColorDepth(
-                    false,
-                    false,
-                    ColorMode::CM65k,
-                    AddressIncrementMode::Horizontal,
-                )
-                .send(&mut self.spi, &mut self.dc)?;
-            }
-            DisplayRotation::Rotate90 => {
-                Command::RemapAndColorDepth(
-                    true,
-                    false,
-                    ColorMode::CM65k,
-                    AddressIncrementMode::Vertical,
-                )
-                .send(&mut self.spi, &mut self.dc)?;
-            }
-            DisplayRotation::Rotate180 => {
-                Command::RemapAndColorDepth(
-                    true,
-                    true,
-                    ColorMode::CM65k,
-                    AddressIncrementMode::Horizontal,
-                )
-                .send(&mut self.spi, &mut self.dc)?;
-            }
-            DisplayRotation::Rotate270 => {
-                Command::RemapAndColorDepth(
-                    false,
-                    true,
-                    ColorMode::CM65k,
-                    AddressIncrementMode::Vertical,
-                )
-                .send(&mut self.spi, &mut self.dc)?;
-            }
-        };
-
-        Ok(())
-    }
-
-    /// Get the current rotation of the display
-    pub fn rotation(&self) -> DisplayRotation {
-        self.display_rotation
-    }
-
-    /// Turn the display on (eg exiting sleep mode)
-    pub fn turn_on(&mut self) -> Result<(), Error<CommE, PinE>> {
-        Command::DisplayOn(true).send(&mut self.spi, &mut self.dc)
-    }
-
-    /// Turn the display off (enter sleep mode)
-    pub fn turn_off(&mut self) -> Result<(), Error<CommE, PinE>> {
-        Command::DisplayOn(false).send(&mut self.spi, &mut self.dc)
-    }
-}
+use core::convert::Infallible;
+use embedded_hal_async::delay::DelayUs;
+use embedded_hal_async::spi::{SpiBus, SpiDevice};
+use hal::digital::v2::{InputPin, OutputPin};
 
 #[cfg(feature = "graphics")]
 use embedded_graphics_core::{
     draw_target::DrawTarget,
     geometry::Size,
     geometry::{Dimensions, OriginDimensions},
-    pixelcolor::{
-        raw::{RawData, RawU16},
-        Rgb565,
-    },
-    Pixel,
+    pixelcolor::BinaryColor,
+    prelude::*,
 };
 
-#[cfg(feature = "graphics")]
-impl<SPI, DC> DrawTarget for Ssd1680<SPI, DC>
+// round up to divisible by 8
+pub const BUF_SIZE: usize = ((DISPLAY_HEIGHT as usize + 7) / 8) * DISPLAY_WIDTH as usize;
+
+pub struct Ssd1680<SPI, OPIN, IPIN>
 where
-    SPI: hal::blocking::spi::Write<u8>,
-    DC: OutputPin,
+    SPI: SpiDevice,
+    SPI::Bus: SpiBus,
+    OPIN: OutputPin<Error = Infallible>,
+    IPIN: InputPin<Error = Infallible>,
 {
-    type Color = Rgb565;
+    buffer: [u8; BUF_SIZE],
+    display_rotation: DisplayRotation,
+    spi: SPI,
+    dc: OPIN,
+    reset: Option<OPIN>,
+    busy: IPIN,
+}
+
+impl<SPI, OPIN, E, IPIN> Ssd1680<SPI, OPIN, IPIN>
+where
+    SPI: SpiDevice<Error = E>,
+    SPI::Bus: SpiBus,
+    OPIN: OutputPin<Error = Infallible>,
+    IPIN: InputPin<Error = Infallible>,
+{
+    pub fn new(
+        spi: SPI,
+        dc: OPIN,
+        reset: Option<OPIN>,
+        busy: IPIN,
+        display_rotation: DisplayRotation,
+    ) -> Self {
+        Self {
+            spi,
+            dc,
+            display_rotation,
+            // inverted
+            buffer: [0xFF; BUF_SIZE],
+            reset,
+            busy,
+        }
+    }
+
+    /// Send the full framebuffer to the display
+    ///
+    /// This resets the draw area the full size of the display
+    pub async fn init<D>(&mut self, delay: &mut D) -> Result<(), Error<E>>
+    where
+        D: DelayUs,
+    {
+        self.send_command(Command::Reset).await?;
+        while self.busy.is_high().unwrap() {}
+
+        self.power_up(delay).await?;
+
+        Ok(())
+    }
+
+    /// Send the full framebuffer to the display
+    ///
+    /// This resets the draw area the full size of the display
+    pub async fn flush<D>(&mut self, delay: &mut D) -> Result<(), Error<E>>
+    where
+        D: DelayUs,
+    {
+        self.set_ram_address(1, 0).await?;
+
+        self.write_ram_frame_buffer().await?;
+
+        // update
+        {
+            self.send_command(Command::DispCtrl2).await?;
+            self.send_data(&[0xF4]).await?;
+
+            self.send_command(Command::MasterActivate).await?;
+            while self.busy.is_high().unwrap() {}
+        }
+
+        Ok(())
+    }
+
+    async fn write_ram_frame_buffer(&mut self) -> Result<(), Error<E>> {
+        self.send_command(Command::WriteRAM1).await?;
+        self.dc.set_high().ok();
+        self.spi.write(&self.buffer).await.map_err(Error::Comm)?;
+        Ok(())
+    }
+
+    async fn set_ram_address(&mut self, x: u8, y: u8) -> Result<(), Error<E>> {
+        self.send_command(Command::RamXCount).await?;
+        self.send_data(&[x]).await?;
+
+        self.send_command(Command::RamYCount).await?;
+        self.send_data(&[y, ((y + 7) / 8)]).await
+    }
+
+    async fn send_command(&mut self, command: Command) -> Result<(), Error<E>> {
+        self.dc.set_low().ok();
+        self.spi.write(&[command as u8]).await.map_err(Error::Comm)
+    }
+
+    async fn send_data(&mut self, buffer: &[u8]) -> Result<(), Error<E>> {
+        self.dc.set_high().ok();
+        self.spi.write(buffer).await.map_err(Error::Comm)?;
+        Ok(())
+    }
+
+    fn hardware_reset<D>(&mut self, delay: &mut D)
+    where
+        D: DelayUs,
+    {
+        if let Some(reset) = &mut self.reset {
+            reset.set_high().ok();
+            delay.delay_ms(10);
+            reset.set_low().ok();
+            delay.delay_ms(10);
+            reset.set_high().ok();
+            delay.delay_ms(10);
+        } else {
+            delay.delay_ms(500); // busy
+        }
+    }
+
+    async fn power_up<D>(&mut self, delay: &mut D) -> Result<(), Error<E>>
+    where
+        D: DelayUs,
+    {
+        self.send_command(Command::Reset).await?;
+        while self.busy.is_high().unwrap() {}
+
+        // command list
+        {
+            self.send_command(Command::Reset).await?;
+            while self.busy.is_high().unwrap() {}
+
+            self.send_command(Command::DataMode).await?;
+            self.send_data(&[0x03]).await?;
+
+            self.send_command(Command::Border).await?;
+            self.send_data(&[0x05]).await?;
+
+            self.send_command(Command::Vcom).await?;
+            self.send_data(&[0x36]).await?;
+
+            self.send_command(Command::GateVoltage).await?;
+            self.send_data(&[0x17]).await?;
+
+            self.send_command(Command::SourceVoltage).await?;
+            self.send_data(&[0x41, 0x00, 0x32]).await?;
+
+            self.set_ram_address(1, 0).await?;
+        }
+
+        self.send_command(Command::RamXPos).await?;
+        self.send_data(&[0x01, ((DISPLAY_HEIGHT + 7) / 8)]).await?;
+
+        self.send_command(Command::RamYPos).await?;
+        self.send_data(&[0, 0, DISPLAY_WIDTH - 1, ((DISPLAY_WIDTH + 7) / 8)])
+            .await?;
+
+        self.send_command(Command::Control).await?;
+        self.send_data(&[DISPLAY_WIDTH - 1, ((DISPLAY_WIDTH + 7) / 8), 0])
+            .await
+    }
+
+    async fn power_down<D>(&mut self, delay: &mut D) -> Result<(), Error<E>>
+    where
+        D: DelayUs,
+    {
+        if let Some(_reset) = &mut self.reset {
+            self.send_command(Command::Sleep).await?;
+            self.send_data(&[0x01]).await?;
+            delay.delay_ms(100);
+        } else {
+            self.send_command(Command::Reset).await?;
+            while self.busy.is_high().unwrap() {}
+        }
+
+        Ok(())
+    }
+
+    pub fn set_pixel(&mut self, x: u32, y: u32, color: BinaryColor) {
+        let height = ((DISPLAY_HEIGHT as usize + 7) / 8) as u32;
+
+        let (index, bit) = (
+            x / 8 + height * (DISPLAY_WIDTH as u32 - 1 - y),
+            0x80 >> (x % 8),
+        );
+        let index = index as usize;
+        if index >= self.buffer.len() {
+            return;
+        }
+
+        match color {
+            BinaryColor::On => {
+                self.buffer[index] &= !bit;
+            }
+            BinaryColor::Off => {
+                self.buffer[index] |= bit;
+            }
+        }
+    }
+}
+
+fn rotation(x: u32, y: u32, height: u32, width: u32, rotation: DisplayRotation) -> (u32, u8) {
+    match rotation {
+        DisplayRotation::Rotate0 => (x / 8 + (height - 1 - y) / 8 * y, 0x80 >> (x % 8)),
+        DisplayRotation::Rotate90 => (height / 8 + (height - 1 - y) / 8 * x, 0x01 << (y % 8)),
+        DisplayRotation::Rotate180 => (
+            ((height - 1 - y) / 8 * width) - (x / 8 + (height - 1 - y) / 8 * y),
+            0x01 << (x % 8),
+        ),
+        DisplayRotation::Rotate270 => (y / 8 + (width - x) * (height - 1 - y) / 8, 0x80 >> (y % 8)),
+    }
+}
+
+#[cfg(feature = "graphics")]
+impl<SPI, OPIN, E, IPIN> DrawTarget for Ssd1680<SPI, OPIN, IPIN>
+where
+    SPI: SpiDevice<Error = E>,
+    SPI::Bus: SpiBus,
+    OPIN: OutputPin<Error = Infallible>,
+    IPIN: InputPin<Error = Infallible>,
+{
+    type Color = BinaryColor;
     type Error = core::convert::Infallible;
 
     fn draw_iter<I>(&mut self, pixels: I) -> Result<(), Self::Error>
@@ -418,23 +252,21 @@ where
         pixels
             .into_iter()
             .filter(|Pixel(pos, _color)| bb.contains(*pos))
-            .for_each(|Pixel(pos, color)| {
-                self.set_pixel(pos.x as u32, pos.y as u32, RawU16::from(color).into_inner())
-            });
+            .for_each(|Pixel(pos, color)| self.set_pixel(pos.x as u32, pos.y as u32, color));
 
         Ok(())
     }
 }
 
 #[cfg(feature = "graphics")]
-impl<SPI, DC> OriginDimensions for Ssd1680<SPI, DC>
+impl<SPI, OPIN, E, IPIN> OriginDimensions for Ssd1680<SPI, OPIN, IPIN>
 where
-    SPI: hal::blocking::spi::Write<u8>,
-    DC: OutputPin,
+    SPI: SpiDevice<Error = E>,
+    SPI::Bus: SpiBus,
+    OPIN: OutputPin<Error = Infallible>,
+    IPIN: InputPin<Error = Infallible>,
 {
     fn size(&self) -> Size {
-        let (w, h) = self.dimensions();
-
-        Size::new(w.into(), h.into())
+        Size::new(DISPLAY_WIDTH.into(), DISPLAY_HEIGHT.into())
     }
 }

@@ -1,37 +1,28 @@
 [package]
+name = "ssd1680"
+version = "0.1.0"
 authors = ["Jacob Rosenthal", "James Waples <james@wapl.es>"]
 categories = ["embedded", "no-std"]
-description = "I2C/SPI driver for the SSD1680 OLED display controller"
+description = "I2C/SPI driver for the SSD1680 eink display controller"
 documentation = "https://docs.rs/ssd1680"
-keywords = ["no-std", "ssd1680", "oled", "embedded", "embedded-hal-driver"]
+keywords = ["no-std", "ssd1680", "eink", "epd", "embedded-hal-driver"]
 license = "MIT OR Apache-2.0"
-name = "ssd1680"
 readme = "README.md"
 repository = "https://github.com/jacobrosenthal/ssd1680"
-version = "0.3.0"
-edition = "2018"
+edition = "2021"
 
 [package.metadata.docs.rs]
 targets = ["thumbv7m-none-eabi"]
 all-features = true
 
 [dependencies]
-embedded-hal = "0.2.3"
-embedded-graphics-core = { version = "0.3.2", optional = true }
-embassy-traits = { version = "0.1.0", git = "https://github.com/embassy-rs/embassy", optional = true }
-
-[dev-dependencies]
-cortex-m = "0.7.3"
-cortex-m-rt = "0.6.11"
-panic-semihosting = "0.5.3"
-embedded-graphics = "0.7.1"
-tinybmp = "0.3.1"
-stm32f1xx-hal = { version = "0.7.0", features = ["rt", "stm32f103"] }
+embedded-hal = { version = "0.2.7", features = ["unproven"] }
+embedded-hal-async = { version = "0.1.0-alpha.1" }
+embedded-graphics-core = { version = "0.3.3", optional = true }
 
 [features]
 default = ["graphics"]
 graphics = ["embedded-graphics-core"]
-embassy-async = ["embassy-traits"]
 
 [profile.dev]
 codegen-units = 1

@@ -22,7 +22,6 @@ cargo test --doc --target x86_64-unknown-linux-gnu
 
 if [ -z $DISABLE_EXAMPLES ]; then
     # todo list of example directories in metadata so other
-    (cd ssd1680-examples/stm32f1-examples && cargo build --examples)
     (cd ssd1680-examples/embassy-nrf && cargo build --examples)
 fi
 
