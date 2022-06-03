@@ -52,7 +52,6 @@ where
         D: DelayUs,
     {
         self.software_reset(delay).await?;
-        self.power_up(delay).await?;
 
         Ok(())
     }
@@ -71,6 +70,8 @@ where
     where
         D: DelayUs,
     {
+        self.power_up(delay).await?;
+
         self.set_ram_address(1, 0).await?;
 
         self.write_ram_frame_buffer().await?;
@@ -85,6 +86,7 @@ where
             delay.delay_ms(1000);
         }
 
+        self.power_down(delay).await?;
         Ok(())
     }
 
