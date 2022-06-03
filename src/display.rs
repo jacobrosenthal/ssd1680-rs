@@ -29,7 +29,6 @@ where
     display_rotation: DisplayRotation,
     spi: SPI,
     dc: OPIN,
-    reset: Option<OPIN>,
 }
 
 impl<SPI, OPIN, E> Ssd1680<SPI, OPIN>
@@ -38,14 +37,13 @@ where
     SPI::Bus: SpiBus,
     OPIN: OutputPin<Error = Infallible>,
 {
-    pub fn new(spi: SPI, dc: OPIN, reset: Option<OPIN>, display_rotation: DisplayRotation) -> Self {
+    pub fn new(spi: SPI, dc: OPIN, display_rotation: DisplayRotation) -> Self {
         Self {
             spi,
             dc,
             display_rotation,
             // inverted
             buffer: [0xFF; BUF_SIZE],
-            reset,
         }
     }
 
@@ -120,16 +118,7 @@ where
     where
         D: DelayUs,
     {
-        if let Some(reset) = &mut self.reset {
-            reset.set_high().ok();
-            delay.delay_ms(10);
-            reset.set_low().ok();
-            delay.delay_ms(10);
-            reset.set_high().ok();
-            delay.delay_ms(10);
-        } else {
-            self.busy_wait(delay);
-        }
+        self.busy_wait(delay);
     }
 
     fn busy_wait<D>(&mut self, delay: &mut D) -> Result<(), Error<E>>
@@ -187,13 +176,7 @@ where
     where
         D: DelayUs,
     {
-        if let Some(_reset) = &mut self.reset {
-            self.send_command(Command::Sleep).await?;
-            self.send_data(&[0x01]).await?;
-            delay.delay_ms(100);
-        } else {
-            self.software_reset(delay).await?;
-        }
+        self.software_reset(delay).await?;
 
         Ok(())
     }
