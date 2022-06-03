@@ -19,35 +19,26 @@ use embedded_graphics_core::{
 // round up to divisible by 8
 pub const BUF_SIZE: usize = ((DISPLAY_HEIGHT as usize + 7) / 8) * DISPLAY_WIDTH as usize;
 
-pub struct Ssd1680<SPI, OPIN, IPIN>
+pub struct Ssd1680<SPI, OPIN>
 where
     SPI: SpiDevice,
     SPI::Bus: SpiBus,
     OPIN: OutputPin<Error = Infallible>,
-    IPIN: InputPin<Error = Infallible>,
 {
     buffer: [u8; BUF_SIZE],
     display_rotation: DisplayRotation,
     spi: SPI,
     dc: OPIN,
     reset: Option<OPIN>,
-    busy: IPIN,
 }
 
-impl<SPI, OPIN, E, IPIN> Ssd1680<SPI, OPIN, IPIN>
+impl<SPI, OPIN, E> Ssd1680<SPI, OPIN>
 where
     SPI: SpiDevice<Error = E>,
     SPI::Bus: SpiBus,
     OPIN: OutputPin<Error = Infallible>,
-    IPIN: InputPin<Error = Infallible>,
 {
-    pub fn new(
-        spi: SPI,
-        dc: OPIN,
-        reset: Option<OPIN>,
-        busy: IPIN,
-        display_rotation: DisplayRotation,
-    ) -> Self {
+    pub fn new(spi: SPI, dc: OPIN, reset: Option<OPIN>, display_rotation: DisplayRotation) -> Self {
         Self {
             spi,
             dc,
@@ -55,28 +46,29 @@ where
             // inverted
             buffer: [0xFF; BUF_SIZE],
             reset,
-            busy,
         }
     }
 
-    /// Send the full framebuffer to the display
-    ///
-    /// This resets the draw area the full size of the display
     pub async fn init<D>(&mut self, delay: &mut D) -> Result<(), Error<E>>
     where
         D: DelayUs,
     {
-        self.send_command(Command::Reset).await?;
-        while self.busy.is_high().unwrap() {}
-
+        self.software_reset(delay).await?;
         self.power_up(delay).await?;
 
         Ok(())
     }
 
-    /// Send the full framebuffer to the display
-    ///
-    /// This resets the draw area the full size of the display
+    pub async fn software_reset<D>(&mut self, delay: &mut D) -> Result<(), Error<E>>
+    where
+        D: DelayUs,
+    {
+        self.send_command(Command::Reset).await?;
+        self.busy_wait(delay);
+
+        Ok(())
+    }
+
     pub async fn flush<D>(&mut self, delay: &mut D) -> Result<(), Error<E>>
     where
         D: DelayUs,
@@ -91,7 +83,8 @@ where
             self.send_data(&[0xF4]).await?;
 
             self.send_command(Command::MasterActivate).await?;
-            while self.busy.is_high().unwrap() {}
+            self.busy_wait(delay);
+            delay.delay_ms(1000);
         }
 
         Ok(())
@@ -135,21 +128,30 @@ where
             reset.set_high().ok();
             delay.delay_ms(10);
         } else {
-            delay.delay_ms(500); // busy
+            self.busy_wait(delay);
         }
+    }
+
+    fn busy_wait<D>(&mut self, delay: &mut D) -> Result<(), Error<E>>
+    where
+        D: DelayUs,
+    {
+        delay.delay_ms(500);
+        Ok(())
     }
 
     async fn power_up<D>(&mut self, delay: &mut D) -> Result<(), Error<E>>
     where
         D: DelayUs,
     {
-        self.send_command(Command::Reset).await?;
-        while self.busy.is_high().unwrap() {}
+        self.hardware_reset(delay);
+        delay.delay_ms(100);
+        self.busy_wait(delay);
 
         // command list
         {
-            self.send_command(Command::Reset).await?;
-            while self.busy.is_high().unwrap() {}
+            self.software_reset(delay).await?;
+            delay.delay_ms(20);
 
             self.send_command(Command::DataMode).await?;
             self.send_data(&[0x03]).await?;
@@ -190,8 +192,7 @@ where
             self.send_data(&[0x01]).await?;
             delay.delay_ms(100);
         } else {
-            self.send_command(Command::Reset).await?;
-            while self.busy.is_high().unwrap() {}
+            self.software_reset(delay).await?;
         }
 
         Ok(())
@@ -233,12 +234,11 @@ fn rotation(x: u32, y: u32, height: u32, width: u32, rotation: DisplayRotation) 
 }
 
 #[cfg(feature = "graphics")]
-impl<SPI, OPIN, E, IPIN> DrawTarget for Ssd1680<SPI, OPIN, IPIN>
+impl<SPI, OPIN, E> DrawTarget for Ssd1680<SPI, OPIN>
 where
     SPI: SpiDevice<Error = E>,
     SPI::Bus: SpiBus,
     OPIN: OutputPin<Error = Infallible>,
-    IPIN: InputPin<Error = Infallible>,
 {
     type Color = BinaryColor;
     type Error = core::convert::Infallible;
@@ -259,12 +259,11 @@ where
 }
 
 #[cfg(feature = "graphics")]
-impl<SPI, OPIN, E, IPIN> OriginDimensions for Ssd1680<SPI, OPIN, IPIN>
+impl<SPI, OPIN, E> OriginDimensions for Ssd1680<SPI, OPIN>
 where
     SPI: SpiDevice<Error = E>,
     SPI::Bus: SpiBus,
     OPIN: OutputPin<Error = Infallible>,
-    IPIN: InputPin<Error = Infallible>,
 {
     fn size(&self) -> Size {
         Size::new(DISPLAY_WIDTH.into(), DISPLAY_HEIGHT.into())
