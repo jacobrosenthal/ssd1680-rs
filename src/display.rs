@@ -3,9 +3,9 @@ use crate::{
 };
 
 use core::convert::Infallible;
+use embedded_hal::digital::v2::{InputPin, OutputPin};
 use embedded_hal_async::delay::DelayUs;
 use embedded_hal_async::spi::{SpiBus, SpiDevice};
-use hal::digital::v2::{InputPin, OutputPin};
 
 #[cfg(feature = "graphics")]
 use embedded_graphics_core::{

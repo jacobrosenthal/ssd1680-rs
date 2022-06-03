@@ -1,41 +1,36 @@
-//! The rust-toolchain will pull in the correct nightly and target so all you
-//! need to run is
+//! Displays a 10x10 box at the origin. The rust-toolchain will pull in the
+//! correct nightly and target so with probe-run installed you can run:
 //!
+//! DEFMT_LOG=info cargo run --release --example ssd
+//! 
 //! Feather nrf52840 express
 //! https://www.adafruit.com/product/4062
 //! https://learn.adafruit.com/introducing-the-adafruit-nrf52840-feather?view=all
 //! https://learn.adafruit.com/assets/68545/
 //! https://cdn-learn.adafruit.com/assets/assets/000/068/545/original/circuitpython_nRF52840_Schematic_REV-D.png?1546364754
 //!
-//! Adafruit 2.13" Monochrome eInk / ePaper Display FeatherWing
-//! https://www.adafruit.com/product/4195
-//! https://learn.adafruit.com/adafruit-2-13-eink-display-breakouts-and-featherwings
-//! As of April 27, 2020 we're selling a version with SSD1680 chipset, instead of the SSD1675 chipset
-//! ThinkInk_213_Mono_BN or the ThinkInk_213_Mono_B74 250x122 Adafruit_SSD1680
-//! no busy pin, #define BUSY_WAIT 500
-//! waveshare might be a A v2? havent seen it working though, with busy pin hack...
-//!
 //! P1_02 button
 //! P0_16 neopixel
 //! P1_10 led blue
 //! P1_15 led red
 //!
-//! thinkink
+//! Adafruit 2.13" Monochrome eInk / ePaper Display FeatherWing
+//! https://www.adafruit.com/product/4195
+//! https://learn.adafruit.com/adafruit-2-13-eink-display-breakouts-and-featherwings
+//! As of April 27, 2020 we're selling a version with SSD1680 chipset, instead of the SSD1675 chipset
+//!
 //! P0_14 sck
 //! P0_13 mosi
 //! P0_15 miso
-//! skip 3
-//!
-//! P0_06 11 busy
-//! P0_27 10 dc
 //! P0_26 9 cs
-//! P0_07 6 srcs
+//! P0_27 10 dc
+//! 
+//! P0_07 6 sram cs
 //! P1_08 5 sd cs
-//! skip 2
 //!
-//! P1_13 rst not connected, just us as sacrificial
-//!
-//! DEFMT_LOG=trace cargo run --release --example ssd
+//! P1_13 rst not connected
+//! P0_06 busy not connected
+//! 
 #![no_main]
 #![no_std]
 #![feature(type_alias_impl_trait)]
