@@ -19,31 +19,35 @@ use embedded_graphics_core::{
 // round up to divisible by 8
 pub const BUF_SIZE: usize = ((DISPLAY_HEIGHT as usize + 7) / 8) * DISPLAY_WIDTH as usize;
 
-pub struct Ssd1680<SPI, OPIN>
+pub struct Ssd1680<SPI, OPIN, IPIN>
 where
     SPI: SpiDevice,
     SPI::Bus: SpiBus,
     OPIN: OutputPin<Error = Infallible>,
+    IPIN: InputPin<Error = Infallible>,
 {
     buffer: [u8; BUF_SIZE],
     display_rotation: DisplayRotation,
     spi: SPI,
     dc: OPIN,
+    busy: IPIN,
 }
 
-impl<SPI, OPIN, E> Ssd1680<SPI, OPIN>
+impl<SPI, OPIN, E, IPIN> Ssd1680<SPI, OPIN, IPIN>
 where
     SPI: SpiDevice<Error = E>,
     SPI::Bus: SpiBus,
     OPIN: OutputPin<Error = Infallible>,
+    IPIN: InputPin<Error = Infallible>,
 {
-    pub fn new(spi: SPI, dc: OPIN, display_rotation: DisplayRotation) -> Self {
+    pub fn new(spi: SPI, dc: OPIN, busy: IPIN, display_rotation: DisplayRotation) -> Self {
         Self {
             spi,
             dc,
             display_rotation,
             // inverted
             buffer: [0xFF; BUF_SIZE],
+            busy,
         }
     }
 
@@ -127,7 +131,9 @@ where
     where
         D: DelayUs,
     {
-        delay.delay_ms(500);
+        // no amount of delay is working instead of soldered busy pin.. need to scope this
+        // delay.delay_ms(500);
+        while self.busy.is_high().unwrap() {}
         Ok(())
     }
 
@@ -219,11 +225,12 @@ fn rotation(x: u32, y: u32, height: u32, width: u32, rotation: DisplayRotation) 
 }
 
 #[cfg(feature = "graphics")]
-impl<SPI, OPIN, E> DrawTarget for Ssd1680<SPI, OPIN>
+impl<SPI, OPIN, E, IPIN> DrawTarget for Ssd1680<SPI, OPIN, IPIN>
 where
     SPI: SpiDevice<Error = E>,
     SPI::Bus: SpiBus,
     OPIN: OutputPin<Error = Infallible>,
+    IPIN: InputPin<Error = Infallible>,
 {
     type Color = BinaryColor;
     type Error = core::convert::Infallible;
@@ -244,11 +251,12 @@ where
 }
 
 #[cfg(feature = "graphics")]
-impl<SPI, OPIN, E> OriginDimensions for Ssd1680<SPI, OPIN>
+impl<SPI, OPIN, E, IPIN> OriginDimensions for Ssd1680<SPI, OPIN, IPIN>
 where
     SPI: SpiDevice<Error = E>,
     SPI::Bus: SpiBus,
     OPIN: OutputPin<Error = Infallible>,
+    IPIN: InputPin<Error = Infallible>,
 {
     fn size(&self) -> Size {
         Size::new(DISPLAY_WIDTH.into(), DISPLAY_HEIGHT.into())
