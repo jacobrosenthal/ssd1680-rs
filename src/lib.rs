@@ -14,7 +14,9 @@
 const DISPLAY_WIDTH: u8 = 250;
 const DISPLAY_HEIGHT: u8 = 122;
 
-pub use crate::{display::Ssd1680, displayrotation::DisplayRotation, error::Error};
+pub use crate::{
+    display::Ssd1680, display::TriColor, displayrotation::DisplayRotation, error::Error,
+};
 
 mod display;
 

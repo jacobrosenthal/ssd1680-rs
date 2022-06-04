@@ -27,6 +27,7 @@ where
     IPIN: InputPin<Error = Infallible>,
 {
     buffer: [u8; BUF_SIZE],
+    buffer2: [u8; BUF_SIZE],
     display_rotation: DisplayRotation,
     spi: SPI,
     dc: OPIN,
@@ -47,6 +48,7 @@ where
             display_rotation,
             // inverted
             buffer: [0xFF; BUF_SIZE],
+            buffer2: [0x00; BUF_SIZE],
             busy,
         }
     }
@@ -80,6 +82,12 @@ where
 
         self.write_ram_frame_buffer().await?;
 
+        delay.delay_ms(2);
+
+        self.set_ram_address(1, 0).await?;
+
+        self.write_ram_frame_buffer2().await?;
+
         // update
         {
             self.send_command(Command::DispCtrl2).await?;
@@ -98,6 +106,13 @@ where
         self.send_command(Command::WriteRAM1).await?;
         self.dc.set_high().ok();
         self.spi.write(&self.buffer).await.map_err(Error::Comm)?;
+        Ok(())
+    }
+
+    async fn write_ram_frame_buffer2(&mut self) -> Result<(), Error<E>> {
+        self.send_command(Command::WriteRAM2).await?;
+        self.dc.set_high().ok();
+        self.spi.write(&self.buffer2).await.map_err(Error::Comm)?;
         Ok(())
     }
 
@@ -189,7 +204,7 @@ where
         Ok(())
     }
 
-    pub fn set_pixel(&mut self, x: u32, y: u32, color: BinaryColor) {
+    pub fn set_pixel(&mut self, x: u32, y: u32, color: TriColor) {
         let height = ((DISPLAY_HEIGHT as usize + 7) / 8) as u32;
 
         let (nx, ny) = find_rotation(
@@ -211,11 +226,18 @@ where
         }
 
         match color {
-            BinaryColor::On => {
+            TriColor::Black => {
                 self.buffer[index] &= !bit;
+                self.buffer2[index] &= !bit;
             }
-            BinaryColor::Off => {
+            TriColor::Chromatic => {
                 self.buffer[index] |= bit;
+                // set bit in chromatic-buffer -> chromatic
+                self.buffer2[index] |= bit;
+            }
+            TriColor::White => {
+                self.buffer[index] |= bit;
+                self.buffer2[index] &= !bit;
             }
         }
     }
@@ -229,7 +251,7 @@ where
     OPIN: OutputPin<Error = Infallible>,
     IPIN: InputPin<Error = Infallible>,
 {
-    type Color = BinaryColor;
+    type Color = TriColor;
     type Error = core::convert::Infallible;
 
     fn draw_iter<I>(&mut self, pixels: I) -> Result<(), Self::Error>
@@ -282,4 +304,38 @@ fn find_rotation(x: u32, y: u32, height: u32, width: u32, rotation: DisplayRotat
         }
     }
     (nx, ny)
+}
+
+/// Only for the Black/White/Color-Displays
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum TriColor {
+    /// Black color
+    Black,
+    /// White color
+    White,
+    /// Chromatic color
+    Chromatic,
+}
+
+impl TriColor {
+    /// Get the color encoding of the color for one bit
+    pub fn get_bit_value(self) -> u8 {
+        match self {
+            TriColor::White => 1u8,
+            TriColor::Black | TriColor::Chromatic => 0u8,
+        }
+    }
+
+    /// Gets a full byte of black or white pixels
+    pub fn get_byte_value(self) -> u8 {
+        match self {
+            TriColor::White => 0xff,
+            TriColor::Black | TriColor::Chromatic => 0x00,
+        }
+    }
+}
+
+#[cfg(feature = "graphics")]
+impl PixelColor for TriColor {
+    type Raw = ();
 }
