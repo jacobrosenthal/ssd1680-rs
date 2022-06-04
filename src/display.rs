@@ -192,10 +192,19 @@ where
     pub fn set_pixel(&mut self, x: u32, y: u32, color: BinaryColor) {
         let height = ((DISPLAY_HEIGHT as usize + 7) / 8) as u32;
 
-        let (index, bit) = (
-            x / 8 + height * (DISPLAY_WIDTH as u32 - 1 - y),
-            0x80 >> (x % 8),
+        let (nx, ny) = find_rotation(
+            x,
+            y,
+            DISPLAY_HEIGHT.into(),
+            DISPLAY_WIDTH.into(),
+            self.display_rotation,
         );
+
+        let (index, bit) = (
+            nx / 8 + height * (DISPLAY_WIDTH as u32 - 1 - ny),
+            0x80 >> (nx % 8),
+        );
+
         let index = index as usize;
         if index >= self.buffer.len() {
             return;
@@ -209,18 +218,6 @@ where
                 self.buffer[index] |= bit;
             }
         }
-    }
-}
-
-fn rotation(x: u32, y: u32, height: u32, width: u32, rotation: DisplayRotation) -> (u32, u8) {
-    match rotation {
-        DisplayRotation::Rotate0 => (x / 8 + (height - 1 - y) / 8 * y, 0x80 >> (x % 8)),
-        DisplayRotation::Rotate90 => (height / 8 + (height - 1 - y) / 8 * x, 0x01 << (y % 8)),
-        DisplayRotation::Rotate180 => (
-            ((height - 1 - y) / 8 * width) - (x / 8 + (height - 1 - y) / 8 * y),
-            0x01 << (x % 8),
-        ),
-        DisplayRotation::Rotate270 => (y / 8 + (width - x) * (height - 1 - y) / 8, 0x80 >> (y % 8)),
     }
 }
 
@@ -261,4 +258,28 @@ where
     fn size(&self) -> Size {
         Size::new(DISPLAY_WIDTH.into(), DISPLAY_HEIGHT.into())
     }
+}
+
+fn find_rotation(x: u32, y: u32, height: u32, width: u32, rotation: DisplayRotation) -> (u32, u32) {
+    let nx;
+    let ny;
+    match rotation {
+        DisplayRotation::Rotate0 => {
+            nx = x;
+            ny = y;
+        }
+        DisplayRotation::Rotate90 => {
+            nx = y;
+            ny = width - 1 - x;
+        }
+        DisplayRotation::Rotate180 => {
+            nx = height - 1 - x;
+            ny = width - 1 - y;
+        }
+        DisplayRotation::Rotate270 => {
+            nx = width - 1 - y;
+            ny = x;
+        }
+    }
+    (nx, ny)
 }
