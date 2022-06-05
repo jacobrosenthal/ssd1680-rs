@@ -6,8 +6,8 @@
 //! https://learn.adafruit.com/introducing-the-adafruit-nrf52840-feather?view=all
 //! https://learn.adafruit.com/assets/68545/
 //!
-//! Adafruit 2.13" Monochrome eInk / ePaper Display FeatherWing
-//! https://www.adafruit.com/product/4195
+//! Adafruit 2.13" HD Tri-Color eInk / ePaper Display FeatherWing - 250x122 RW Panel with SSD1680
+//! https://www.adafruit.com/product/4814
 //! https://learn.adafruit.com/adafruit-2-13-eink-display-breakouts-and-featherwings?view=all
 //! As of April 27, 2020 we're selling a version with SSD1680 chipset, instead of the SSD1675 chipset
 //! Busy and Rst pin not connected
