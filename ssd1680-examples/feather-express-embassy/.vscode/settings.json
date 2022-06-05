@@ -1,0 +1,21 @@
+{
+    "editor.formatOnSave": true,
+    "rust-analyzer.cargo.allFeatures": false,
+    "rust-analyzer.checkOnSave.allFeatures": false,
+    "rust-analyzer.cargo.target": "thumbv7em-none-eabi",
+    "rust-analyzer.checkOnSave.allTargets": false,
+    "rust-analyzer.checkOnSave.extraArgs": [
+        "--examples"
+    ],
+    "cargo": {
+        "loadOutDirsFromCheck": true,
+    },
+    "rust-analyzer.procMacro.enable": true,
+    "files.watcherExclude": {
+        "**/.git/objects/**": true,
+        "**/.git/subtree-cache/**": true,
+        "**/target/**": true,
+    },
+    "rust-analyzer.cargo.buildScripts.enable": true,
+    "rust-analyzer.procMacro.attributes.enable": false
+}

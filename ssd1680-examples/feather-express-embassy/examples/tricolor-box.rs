@@ -47,11 +47,8 @@ use embassy::util::Forever;
 use embassy_nrf::gpio::{self, AnyPin, Pin};
 use embassy_nrf::{interrupt, spim};
 use embedded_graphics::{
-    mono_font::MonoTextStyleBuilder,
-    pixelcolor::BinaryColor,
     prelude::*,
-    primitives::{Circle, PrimitiveStyle, Rectangle},
-    text::{Baseline, Text, TextStyleBuilder},
+    primitives::{ PrimitiveStyle, Rectangle},
 };
 use embedded_hal_async::delay::DelayUs;
 use embedded_hal_async::spi::ExclusiveDevice;

@@ -47,15 +47,13 @@ use embassy::util::Forever;
 use embassy_nrf::gpio::{self, AnyPin, Pin};
 use embassy_nrf::{interrupt, spim};
 use embedded_graphics::{
-    mono_font::MonoTextStyleBuilder,
     pixelcolor::BinaryColor,
     prelude::*,
-    primitives::{Circle, PrimitiveStyle, Rectangle},
-    text::{Baseline, Text, TextStyleBuilder},
+    primitives::{PrimitiveStyle, Rectangle},
 };
+use embedded_hal_async::delay::DelayUs;
 use embedded_hal_async::spi::ExclusiveDevice;
 use ssd1680::{DisplayRotation, Ssd1680};
-use embedded_hal_async::delay::DelayUs;
 
 // we make a lazily created static
 static EXECUTOR: Forever<embassy::executor::Executor> = Forever::new();
@@ -149,9 +147,9 @@ pub async fn display_task() {
     Delay.delay_ms(2000).await.unwrap();
 
     Rectangle::new(Point::new(0, 0), Size::new(30, 30))
-    .into_styled(PrimitiveStyle::with_fill(BinaryColor::On))
-    .draw(&mut ssd1680)
-    .unwrap();
+        .into_styled(PrimitiveStyle::with_fill(BinaryColor::On))
+        .draw(&mut ssd1680)
+        .unwrap();
 
     ssd1680.flush(&mut Delay).await.unwrap();
 
