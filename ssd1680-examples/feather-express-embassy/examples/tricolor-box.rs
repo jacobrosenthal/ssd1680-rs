@@ -5,15 +5,12 @@
 //! https://www.adafruit.com/product/4062
 //! https://learn.adafruit.com/introducing-the-adafruit-nrf52840-feather?view=all
 //! https://learn.adafruit.com/assets/68545/
-//! https://cdn-learn.adafruit.com/assets/assets/000/068/545/original/circuitpython_nRF52840_Schematic_REV-D.png?1546364754
 //!
 //! Adafruit 2.13" Monochrome eInk / ePaper Display FeatherWing
 //! https://www.adafruit.com/product/4195
-//! https://learn.adafruit.com/adafruit-2-13-eink-display-breakouts-and-featherwings
+//! https://learn.adafruit.com/adafruit-2-13-eink-display-breakouts-and-featherwings?view=all
 //! As of April 27, 2020 we're selling a version with SSD1680 chipset, instead of the SSD1675 chipset
-//! ThinkInk_213_Mono_BN or the ThinkInk_213_Mono_B74 250x122 Adafruit_SSD1680
-//! no busy pin, #define BUSY_WAIT 500
-//! waveshare might be a A v2? havent seen it working though, with busy pin hack...
+//! Busy and Rst pin not connected
 //!
 //! P1_02 button
 //! P0_16 neopixel
@@ -25,17 +22,16 @@
 //! P0_13 mosi
 //! P0_15 miso
 //! skip 3
+//! P0_30 rst MUST SOLDER
 //!
-//! P0_06 11 busy
+//! P0_06 11 busy MUST SOLDER
 //! P0_27 10 dc
 //! P0_26 9 cs
 //! P0_07 6 srcs
 //! P1_08 5 sd cs
 //! skip 2
 //!
-//! P1_13 rst not connected, just us as sacrificial
-//!
-//! DEFMT_LOG=trace cargo run --release --example ssd1680-tri
+//! DEFMT_LOG=trace cargo run --release --example tricolor-box
 #![no_main]
 #![no_std]
 #![feature(type_alias_impl_trait)]
@@ -57,7 +53,7 @@ use embedded_graphics::{
     primitives::{Circle, PrimitiveStyle, Rectangle},
     text::{Baseline, Text, TextStyleBuilder},
 };
-use embedded_hal::digital::v2::InputPin;
+use embedded_hal_async::delay::DelayUs;
 use embedded_hal_async::spi::ExclusiveDevice;
 use ssd1680::{DisplayRotation, Ssd1680TriColor, TriColor};
 
@@ -133,12 +129,26 @@ pub async fn display_task() {
         gpio::OutputDrive::Standard,
     );
 
+    let reset = gpio::Output::new(
+        dp.P0_30.degrade(),
+        gpio::Level::High,
+        gpio::OutputDrive::Standard,
+    );
+
     let busy = gpio::Input::new(dp.P0_06.degrade(), gpio::Pull::Up);
 
-    let mut ssd1680 = Ssd1680TriColor::new(spi_dev, dc, busy, DisplayRotation::Rotate0);
-    ssd1680.init(&mut Delay).await.unwrap();
+    let mut ssd1680 = Ssd1680TriColor::new(spi_dev, dc, reset, busy, DisplayRotation::Rotate0);
 
-    Rectangle::new(Point::new(0, 0), Size::new(10, 10))
+    Rectangle::new(Point::new(0, 0), Size::new(15, 15))
+        .into_styled(PrimitiveStyle::with_fill(TriColor::Chromatic))
+        .draw(&mut ssd1680)
+        .unwrap();
+
+    ssd1680.flush(&mut Delay).await.unwrap();
+
+    Delay.delay_ms(2000).await.unwrap();
+
+    Rectangle::new(Point::new(0, 0), Size::new(30, 30))
         .into_styled(PrimitiveStyle::with_fill(TriColor::Chromatic))
         .draw(&mut ssd1680)
         .unwrap();

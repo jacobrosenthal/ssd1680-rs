@@ -1,6 +1,7 @@
 use crate::{command::Command, error::Error, DISPLAY_HEIGHT, DISPLAY_WIDTH};
 use core::convert::Infallible;
 use embedded_hal::digital::v2::OutputPin;
+use embedded_hal_async::delay::DelayUs;
 use embedded_hal_async::digital::Wait;
 use embedded_hal_async::spi::{SpiBus, SpiDevice};
 
@@ -14,6 +15,7 @@ where
     spi: SPI,
     dc: OPIN,
     busy: P,
+    reset: OPIN,
 }
 
 impl<SPI, OPIN, E, P> SpiInterface<SPI, OPIN, P>
@@ -23,8 +25,13 @@ where
     OPIN: OutputPin<Error = Infallible>,
     P: Wait<Error = Infallible>,
 {
-    pub fn new(spi: SPI, dc: OPIN, busy: P) -> Self {
-        Self { spi, dc, busy }
+    pub fn new(spi: SPI, dc: OPIN, reset: OPIN, busy: P) -> Self {
+        Self {
+            spi,
+            dc,
+            busy,
+            reset,
+        }
     }
 
     pub async fn software_reset(&mut self) -> Result<(), Error<E>> {
@@ -60,22 +67,29 @@ where
         self.spi.write(buffer).await.map_err(Error::Comm)
     }
 
-    pub async fn hardware_reset(&mut self) -> Result<(), Error<E>> {
-        self.busy_wait().await
+    pub async fn hardware_reset<D>(&mut self, delay: &mut D) -> Result<(), Error<E>>
+    where
+        D: DelayUs,
+    {
+        self.reset.set_low().ok();
+        delay.delay_ms(10).await.ok();
+        self.reset.set_high().ok();
+        Ok(())
     }
 
     pub async fn busy_wait(&mut self) -> Result<(), Error<E>> {
         self.busy.wait_for_low().await.map_err(Error::Pin)
     }
 
-    pub async fn power_up(&mut self) -> Result<(), Error<E>> {
-        self.hardware_reset().await?;
-        self.busy_wait().await?;
+    pub async fn power_up<D>(&mut self, delay: &mut D) -> Result<(), Error<E>>
+    where
+        D: DelayUs,
+    {
+        self.hardware_reset(delay).await?;
+        self.software_reset().await?;
 
         // command list
         {
-            self.software_reset().await?;
-
             self.send_command(Command::DataMode).await?;
             self.send_data(&[0x03]).await?;
 
@@ -107,6 +121,7 @@ where
     }
 
     pub async fn power_down(&mut self) -> Result<(), Error<E>> {
-        self.software_reset().await
+        self.send_command(Command::Sleep).await?;
+        self.send_data(&[0x01]).await
     }
 }

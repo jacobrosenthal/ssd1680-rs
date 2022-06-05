@@ -8,6 +8,7 @@ use crate::{
 
 use core::convert::Infallible;
 use embedded_hal::digital::v2::OutputPin;
+use embedded_hal_async::delay::DelayUs;
 use embedded_hal_async::digital::Wait;
 use embedded_hal_async::spi::{SpiBus, SpiDevice};
 
@@ -39,20 +40,25 @@ where
     OPIN: OutputPin<Error = Infallible>,
     P: Wait<Error = Infallible>,
 {
-    pub fn new(spi: SPI, dc: OPIN, busy: P, display_rotation: DisplayRotation) -> Self {
+    pub fn new(
+        spi: SPI,
+        dc: OPIN,
+        reset: OPIN,
+        busy: P,
+        display_rotation: DisplayRotation,
+    ) -> Self {
         Self {
-            interface: SpiInterface::new(spi, dc, busy),
+            interface: SpiInterface::new(spi, dc, reset, busy),
             display_rotation,
             buffer: [0xFF; BUF_SIZE], // inverted
         }
     }
 
-    pub async fn init(&mut self) -> Result<(), Error<E>> {
-        self.interface.software_reset().await
-    }
-
-    pub async fn flush(&mut self) -> Result<(), Error<E>> {
-        self.interface.power_up().await?;
+    pub async fn flush<D>(&mut self, delay: &mut D) -> Result<(), Error<E>>
+    where
+        D: DelayUs,
+    {
+        self.interface.power_up(delay).await?;
 
         self.interface.set_ram_address(1, 0).await?;
 
