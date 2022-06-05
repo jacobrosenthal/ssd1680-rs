@@ -1,7 +1,6 @@
 use crate::{command::Command, error::Error, DISPLAY_HEIGHT, DISPLAY_WIDTH};
 use core::convert::Infallible;
 use embedded_hal::digital::v2::OutputPin;
-use embedded_hal_async::delay::DelayUs;
 use embedded_hal_async::digital::Wait;
 use embedded_hal_async::spi::{SpiBus, SpiDevice};
 
@@ -28,12 +27,9 @@ where
         Self { spi, dc, busy }
     }
 
-    pub async fn software_reset<D>(&mut self, delay: &mut D) -> Result<(), Error<E>>
-    where
-        D: DelayUs,
-    {
+    pub async fn software_reset(&mut self) -> Result<(), Error<E>> {
         self.send_command(Command::Reset).await?;
-        self.busy_wait(delay).await
+        self.busy_wait().await
     }
 
     pub async fn write_ram_frame_buffer(
@@ -64,34 +60,21 @@ where
         self.spi.write(buffer).await.map_err(Error::Comm)
     }
 
-    pub async fn hardware_reset<D>(&mut self, delay: &mut D) -> Result<(), Error<E>>
-    where
-        D: DelayUs,
-    {
-        self.busy_wait(delay).await
+    pub async fn hardware_reset(&mut self) -> Result<(), Error<E>> {
+        self.busy_wait().await
     }
 
-    pub async fn busy_wait<D>(&mut self, _delay: &mut D) -> Result<(), Error<E>>
-    where
-        D: DelayUs,
-    {
-        // no amount of delay is working instead of soldered busy pin.. need to scope this
-        // delay.delay_ms(500);
+    pub async fn busy_wait(&mut self) -> Result<(), Error<E>> {
         self.busy.wait_for_low().await.map_err(Error::Pin)
     }
 
-    pub async fn power_up<D>(&mut self, delay: &mut D) -> Result<(), Error<E>>
-    where
-        D: DelayUs,
-    {
-        self.hardware_reset(delay).await?;
-        delay.delay_ms(100);
-        self.busy_wait(delay).await?;
+    pub async fn power_up(&mut self) -> Result<(), Error<E>> {
+        self.hardware_reset().await?;
+        self.busy_wait().await?;
 
         // command list
         {
-            self.software_reset(delay).await?;
-            delay.delay_ms(20);
+            self.software_reset().await?;
 
             self.send_command(Command::DataMode).await?;
             self.send_data(&[0x03]).await?;
@@ -123,10 +106,7 @@ where
             .await
     }
 
-    pub async fn power_down<D>(&mut self, delay: &mut D) -> Result<(), Error<E>>
-    where
-        D: DelayUs,
-    {
-        self.software_reset(delay).await
+    pub async fn power_down(&mut self) -> Result<(), Error<E>> {
+        self.software_reset().await
     }
 }

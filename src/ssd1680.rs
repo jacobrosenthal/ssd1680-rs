@@ -8,7 +8,6 @@ use crate::{
 
 use core::convert::Infallible;
 use embedded_hal::digital::v2::OutputPin;
-use embedded_hal_async::delay::DelayUs;
 use embedded_hal_async::digital::Wait;
 use embedded_hal_async::spi::{SpiBus, SpiDevice};
 
@@ -48,18 +47,12 @@ where
         }
     }
 
-    pub async fn init<D>(&mut self, delay: &mut D) -> Result<(), Error<E>>
-    where
-        D: DelayUs,
-    {
-        self.interface.software_reset(delay).await
+    pub async fn init(&mut self) -> Result<(), Error<E>> {
+        self.interface.software_reset().await
     }
 
-    pub async fn flush<D>(&mut self, delay: &mut D) -> Result<(), Error<E>>
-    where
-        D: DelayUs,
-    {
-        self.interface.power_up(delay).await?;
+    pub async fn flush(&mut self) -> Result<(), Error<E>> {
+        self.interface.power_up().await?;
 
         self.interface.set_ram_address(1, 0).await?;
 
@@ -67,17 +60,17 @@ where
             .write_ram_frame_buffer(&self.buffer, Command::WriteRAM1)
             .await?;
 
+        self.interface.busy_wait().await?;
         // update
         {
             self.interface.send_command(Command::DispCtrl2).await?;
             self.interface.send_data(&[0xF4]).await?;
 
             self.interface.send_command(Command::MasterActivate).await?;
-            self.interface.busy_wait(delay).await?;
-            delay.delay_ms(1000);
+            self.interface.busy_wait().await?;
         }
 
-        self.interface.power_down(delay).await
+        self.interface.power_down().await
     }
 
     pub fn set_pixel(&mut self, x: u32, y: u32, color: BinaryColor) {
