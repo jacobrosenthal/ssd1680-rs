@@ -1,29 +1,30 @@
 use crate::{command::Command, error::Error, DISPLAY_HEIGHT, DISPLAY_WIDTH};
 use core::convert::Infallible;
-use embedded_hal::digital::v2::{InputPin, OutputPin};
+use embedded_hal::digital::v2::OutputPin;
 use embedded_hal_async::delay::DelayUs;
+use embedded_hal_async::digital::Wait;
 use embedded_hal_async::spi::{SpiBus, SpiDevice};
 
-pub struct SpiInterface<SPI, OPIN, IPIN>
+pub struct SpiInterface<SPI, OPIN, P>
 where
     SPI: SpiDevice,
     SPI::Bus: SpiBus,
     OPIN: OutputPin<Error = Infallible>,
-    IPIN: InputPin<Error = Infallible>,
+    P: Wait<Error = Infallible>,
 {
     spi: SPI,
     dc: OPIN,
-    busy: IPIN,
+    busy: P,
 }
 
-impl<SPI, OPIN, E, IPIN> SpiInterface<SPI, OPIN, IPIN>
+impl<SPI, OPIN, E, P> SpiInterface<SPI, OPIN, P>
 where
     SPI: SpiDevice<Error = E>,
     SPI::Bus: SpiBus,
     OPIN: OutputPin<Error = Infallible>,
-    IPIN: InputPin<Error = Infallible>,
+    P: Wait<Error = Infallible>,
 {
-    pub fn new(spi: SPI, dc: OPIN, busy: IPIN) -> Self {
+    pub fn new(spi: SPI, dc: OPIN, busy: P) -> Self {
         Self { spi, dc, busy }
     }
 
@@ -32,7 +33,7 @@ where
         D: DelayUs,
     {
         self.send_command(Command::Reset).await?;
-        self.busy_wait(delay)
+        self.busy_wait(delay).await
     }
 
     pub async fn write_ram_frame_buffer(
@@ -63,30 +64,29 @@ where
         self.spi.write(buffer).await.map_err(Error::Comm)
     }
 
-    pub fn hardware_reset<D>(&mut self, delay: &mut D) -> Result<(), Error<E>>
+    pub async fn hardware_reset<D>(&mut self, delay: &mut D) -> Result<(), Error<E>>
     where
         D: DelayUs,
     {
-        self.busy_wait(delay)
+        self.busy_wait(delay).await
     }
 
-    pub fn busy_wait<D>(&mut self, _delay: &mut D) -> Result<(), Error<E>>
+    pub async fn busy_wait<D>(&mut self, _delay: &mut D) -> Result<(), Error<E>>
     where
         D: DelayUs,
     {
         // no amount of delay is working instead of soldered busy pin.. need to scope this
         // delay.delay_ms(500);
-        while self.busy.is_high().map_err(|_| Error::Pin(()))? {}
-        Ok(())
+        self.busy.wait_for_low().await.map_err(Error::Pin)
     }
 
     pub async fn power_up<D>(&mut self, delay: &mut D) -> Result<(), Error<E>>
     where
         D: DelayUs,
     {
-        self.hardware_reset(delay)?;
+        self.hardware_reset(delay).await?;
         delay.delay_ms(100);
-        self.busy_wait(delay)?;
+        self.busy_wait(delay).await?;
 
         // command list
         {

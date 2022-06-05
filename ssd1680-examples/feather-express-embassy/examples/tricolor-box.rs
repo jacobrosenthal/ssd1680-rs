@@ -57,6 +57,7 @@ use embedded_graphics::{
     primitives::{Circle, PrimitiveStyle, Rectangle},
     text::{Baseline, Text, TextStyleBuilder},
 };
+use embedded_hal::digital::v2::InputPin;
 use embedded_hal_async::spi::ExclusiveDevice;
 use ssd1680::{DisplayRotation, Ssd1680TriColor, TriColor};
 

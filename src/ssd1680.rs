@@ -7,8 +7,9 @@ use crate::{
 };
 
 use core::convert::Infallible;
-use embedded_hal::digital::v2::{InputPin, OutputPin};
+use embedded_hal::digital::v2::OutputPin;
 use embedded_hal_async::delay::DelayUs;
+use embedded_hal_async::digital::Wait;
 use embedded_hal_async::spi::{SpiBus, SpiDevice};
 
 #[cfg(feature = "graphics")]
@@ -20,26 +21,26 @@ use embedded_graphics_core::{
     prelude::*,
 };
 
-pub struct Ssd1680<SPI, OPIN, IPIN>
+pub struct Ssd1680<SPI, OPIN, P>
 where
     SPI: SpiDevice,
     SPI::Bus: SpiBus,
     OPIN: OutputPin<Error = Infallible>,
-    IPIN: InputPin<Error = Infallible>,
+    P: Wait<Error = Infallible>,
 {
     buffer: [u8; BUF_SIZE],
     display_rotation: DisplayRotation,
-    interface: SpiInterface<SPI, OPIN, IPIN>,
+    interface: SpiInterface<SPI, OPIN, P>,
 }
 
-impl<SPI, OPIN, E, IPIN> Ssd1680<SPI, OPIN, IPIN>
+impl<SPI, OPIN, E, P> Ssd1680<SPI, OPIN, P>
 where
     SPI: SpiDevice<Error = E>,
     SPI::Bus: SpiBus,
     OPIN: OutputPin<Error = Infallible>,
-    IPIN: InputPin<Error = Infallible>,
+    P: Wait<Error = Infallible>,
 {
-    pub fn new(spi: SPI, dc: OPIN, busy: IPIN, display_rotation: DisplayRotation) -> Self {
+    pub fn new(spi: SPI, dc: OPIN, busy: P, display_rotation: DisplayRotation) -> Self {
         Self {
             interface: SpiInterface::new(spi, dc, busy),
             display_rotation,
@@ -72,7 +73,7 @@ where
             self.interface.send_data(&[0xF4]).await?;
 
             self.interface.send_command(Command::MasterActivate).await?;
-            self.interface.busy_wait(delay)?;
+            self.interface.busy_wait(delay).await?;
             delay.delay_ms(1000);
         }
 
@@ -112,12 +113,12 @@ where
 }
 
 #[cfg(feature = "graphics")]
-impl<SPI, OPIN, E, IPIN> DrawTarget for Ssd1680<SPI, OPIN, IPIN>
+impl<SPI, OPIN, E, P> DrawTarget for Ssd1680<SPI, OPIN, P>
 where
     SPI: SpiDevice<Error = E>,
     SPI::Bus: SpiBus,
     OPIN: OutputPin<Error = Infallible>,
-    IPIN: InputPin<Error = Infallible>,
+    P: Wait<Error = Infallible>,
 {
     type Color = BinaryColor;
     type Error = core::convert::Infallible;
@@ -138,12 +139,12 @@ where
 }
 
 #[cfg(feature = "graphics")]
-impl<SPI, OPIN, E, IPIN> OriginDimensions for Ssd1680<SPI, OPIN, IPIN>
+impl<SPI, OPIN, E, P> OriginDimensions for Ssd1680<SPI, OPIN, P>
 where
     SPI: SpiDevice<Error = E>,
     SPI::Bus: SpiBus,
     OPIN: OutputPin<Error = Infallible>,
-    IPIN: InputPin<Error = Infallible>,
+    P: Wait<Error = Infallible>,
 {
     fn size(&self) -> Size {
         Size::new(DISPLAY_WIDTH.into(), DISPLAY_HEIGHT.into())
