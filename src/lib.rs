@@ -13,27 +13,18 @@
 
 const DISPLAY_WIDTH: u8 = 250;
 const DISPLAY_HEIGHT: u8 = 122;
+// round up to divisible by 8
+const BUF_SIZE: usize = ((DISPLAY_HEIGHT as usize + 7) / 8) * DISPLAY_WIDTH as usize;
 
 pub use crate::{
-    display::Ssd1680, display::TriColor, displayrotation::DisplayRotation, error::Error,
+    display::DisplayRotation, error::Error, ssd1680::Ssd1680, ssd1680tricolor::Ssd1680TriColor,
+    ssd1680tricolor::TriColor,
 };
 
 mod display;
-
-mod displayrotation {
-    /// Display rotation
-    #[derive(Clone, Copy)]
-    pub enum DisplayRotation {
-        /// No rotation, normal display
-        Rotate0,
-        /// Rotate by 90 degrees clockwise
-        Rotate90,
-        /// Rotate by 180 degrees clockwise
-        Rotate180,
-        /// Rotate 270 degrees clockwise
-        Rotate270,
-    }
-}
+mod interface;
+mod ssd1680;
+mod ssd1680tricolor;
 
 mod command {
 
@@ -63,13 +54,11 @@ mod command {
 }
 
 mod error {
-    use core::convert::Infallible;
-
     #[derive(Debug)]
     pub enum Error<E = ()> {
         /// Communication error
         Comm(E),
         /// Pin setting error
-        Pin(Infallible),
+        Pin(()),
     }
 }

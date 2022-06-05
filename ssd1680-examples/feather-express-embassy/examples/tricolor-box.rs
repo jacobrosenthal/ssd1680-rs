@@ -1,36 +1,41 @@
-//! Displays a 10x10 box at the origin. The rust-toolchain will pull in the
-//! correct nightly and target so with probe-run installed you can run:
+//! The rust-toolchain will pull in the correct nightly and target so all you
+//! need to run is
 //!
-//! DEFMT_LOG=info cargo run --release --example ssd
-//! 
 //! Feather nrf52840 express
 //! https://www.adafruit.com/product/4062
 //! https://learn.adafruit.com/introducing-the-adafruit-nrf52840-feather?view=all
 //! https://learn.adafruit.com/assets/68545/
 //! https://cdn-learn.adafruit.com/assets/assets/000/068/545/original/circuitpython_nRF52840_Schematic_REV-D.png?1546364754
 //!
+//! Adafruit 2.13" Monochrome eInk / ePaper Display FeatherWing
+//! https://www.adafruit.com/product/4195
+//! https://learn.adafruit.com/adafruit-2-13-eink-display-breakouts-and-featherwings
+//! As of April 27, 2020 we're selling a version with SSD1680 chipset, instead of the SSD1675 chipset
+//! ThinkInk_213_Mono_BN or the ThinkInk_213_Mono_B74 250x122 Adafruit_SSD1680
+//! no busy pin, #define BUSY_WAIT 500
+//! waveshare might be a A v2? havent seen it working though, with busy pin hack...
+//!
 //! P1_02 button
 //! P0_16 neopixel
 //! P1_10 led blue
 //! P1_15 led red
 //!
-//! Adafruit 2.13" Monochrome eInk / ePaper Display FeatherWing
-//! https://www.adafruit.com/product/4195
-//! https://learn.adafruit.com/adafruit-2-13-eink-display-breakouts-and-featherwings
-//! As of April 27, 2020 we're selling a version with SSD1680 chipset, instead of the SSD1675 chipset
-//!
+//! thinkink
 //! P0_14 sck
 //! P0_13 mosi
 //! P0_15 miso
-//! P0_26 9 cs
-//! P0_27 10 dc
-//! 
-//! P0_07 6 sram cs
-//! P1_08 5 sd cs
+//! skip 3
 //!
-//! P1_13 rst not connected
-//! P0_06 busy not connected
-//! 
+//! P0_06 11 busy
+//! P0_27 10 dc
+//! P0_26 9 cs
+//! P0_07 6 srcs
+//! P1_08 5 sd cs
+//! skip 2
+//!
+//! P1_13 rst not connected, just us as sacrificial
+//!
+//! DEFMT_LOG=trace cargo run --release --example ssd1680-tri
 #![no_main]
 #![no_std]
 #![feature(type_alias_impl_trait)]
@@ -53,7 +58,7 @@ use embedded_graphics::{
     text::{Baseline, Text, TextStyleBuilder},
 };
 use embedded_hal_async::spi::ExclusiveDevice;
-use ssd1680::{DisplayRotation, Ssd1680};
+use ssd1680::{DisplayRotation, Ssd1680TriColor, TriColor};
 
 // we make a lazily created static
 static EXECUTOR: Forever<embassy::executor::Executor> = Forever::new();
@@ -127,14 +132,13 @@ pub async fn display_task() {
         gpio::OutputDrive::Standard,
     );
 
-    let busy = gpio::Input::new(dp.P0_06.degrade(), gpio::Pull::None);
+    let busy = gpio::Input::new(dp.P0_06.degrade(), gpio::Pull::Up);
 
-    let mut ssd1680 = Ssd1680::new(spi_dev, dc, None, busy, DisplayRotation::Rotate0);
+    let mut ssd1680 = Ssd1680TriColor::new(spi_dev, dc, busy, DisplayRotation::Rotate0);
     ssd1680.init(&mut Delay).await.unwrap();
 
-    // ssd1680.clear(BinaryColor::On).unwrap();
     Rectangle::new(Point::new(0, 0), Size::new(10, 10))
-        .into_styled(PrimitiveStyle::with_fill(BinaryColor::On))
+        .into_styled(PrimitiveStyle::with_fill(TriColor::Chromatic))
         .draw(&mut ssd1680)
         .unwrap();
 
