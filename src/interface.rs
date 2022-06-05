@@ -78,7 +78,8 @@ where
     }
 
     pub async fn busy_wait(&mut self) -> Result<(), Error<E>> {
-        self.busy.wait_for_low().await.map_err(Error::Pin)
+        self.busy.wait_for_low().await.ok();
+        Ok(())
     }
 
     pub async fn power_up<D>(&mut self, delay: &mut D) -> Result<(), Error<E>>
