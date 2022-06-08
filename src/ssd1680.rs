@@ -79,6 +79,35 @@ where
         self.interface.power_down().await
     }
 
+    pub async fn flush_display(&mut self) -> Result<(), Error<E>> {
+        self.interface.set_ram_address(1, 0).await?;
+
+        self.interface
+            .write_ram_frame_buffer(&self.buffer, Command::WriteRAM1)
+            .await?;
+
+        self.interface.busy_wait().await
+    }
+
+    pub async fn flush_update(&mut self) -> Result<(), Error<E>> {
+        self.interface.send_command(Command::DispCtrl2).await?;
+        self.interface.send_data(&[0xF4]).await?;
+
+        self.interface.send_command(Command::MasterActivate).await?;
+        self.interface.busy_wait().await
+    }
+
+    pub async fn power_down(&mut self) -> Result<(), Error<E>> {
+        self.interface.power_down().await
+    }
+
+    pub async fn power_up<D>(&mut self, delay: &mut D) -> Result<(), Error<E>>
+    where
+        D: DelayUs,
+    {
+        self.interface.power_up(delay).await
+    }
+
     pub fn set_pixel(&mut self, x: u32, y: u32, color: BinaryColor) {
         let height = ((DISPLAY_HEIGHT as usize + 7) / 8) as u32;
 
@@ -91,8 +120,8 @@ where
         );
 
         let (index, bit) = (
-            nx / 8 + height * (DISPLAY_WIDTH as u32 - 1 - ny),
-            0x80 >> (nx % 8),
+            ny / 8 + height * (DISPLAY_WIDTH as u32 - 1 - nx),
+            0x80 >> (ny % 8),
         );
 
         let index = index as usize;
