@@ -5,27 +5,29 @@ use embedded_hal_async::delay::DelayUs;
 use embedded_hal_async::digital::Wait;
 use embedded_hal_async::spi::{SpiBus, SpiDevice};
 
-pub struct SpiInterface<SPI, OPIN, P>
+pub struct SpiInterface<SPI, OPIN, OPIN2, P>
 where
     SPI: SpiDevice,
     SPI::Bus: SpiBus,
     OPIN: OutputPin<Error = Infallible>,
+    OPIN2: OutputPin<Error = Infallible>,
     P: Wait<Error = Infallible>,
 {
     spi: SPI,
     dc: OPIN,
     busy: P,
-    reset: OPIN,
+    reset: OPIN2,
 }
 
-impl<SPI, OPIN, E, P> SpiInterface<SPI, OPIN, P>
+impl<SPI, OPIN, OPIN2, E, P> SpiInterface<SPI, OPIN, OPIN2, P>
 where
     SPI: SpiDevice<Error = E>,
     SPI::Bus: SpiBus,
     OPIN: OutputPin<Error = Infallible>,
+    OPIN2: OutputPin<Error = Infallible>,
     P: Wait<Error = Infallible>,
 {
-    pub fn new(spi: SPI, dc: OPIN, reset: OPIN, busy: P) -> Self {
+    pub fn new(spi: SPI, dc: OPIN, reset: OPIN2, busy: P) -> Self {
         Self {
             spi,
             dc,

@@ -21,29 +21,31 @@ use embedded_graphics_core::{
     prelude::*,
 };
 
-pub struct Ssd1680<SPI, OPIN, P>
+pub struct Ssd1680<SPI, OPIN, OPIN2, P>
 where
     SPI: SpiDevice,
     SPI::Bus: SpiBus,
     OPIN: OutputPin<Error = Infallible>,
+    OPIN2: OutputPin<Error = Infallible>,
     P: Wait<Error = Infallible>,
 {
     buffer: [u8; BUF_SIZE],
     display_rotation: DisplayRotation,
-    interface: SpiInterface<SPI, OPIN, P>,
+    interface: SpiInterface<SPI, OPIN, OPIN2, P>,
 }
 
-impl<SPI, OPIN, E, P> Ssd1680<SPI, OPIN, P>
+impl<SPI, OPIN, OPIN2, E, P> Ssd1680<SPI, OPIN, OPIN2, P>
 where
     SPI: SpiDevice<Error = E>,
     SPI::Bus: SpiBus,
     OPIN: OutputPin<Error = Infallible>,
+    OPIN2: OutputPin<Error = Infallible>,
     P: Wait<Error = Infallible>,
 {
     pub fn new(
         spi: SPI,
         dc: OPIN,
-        reset: OPIN,
+        reset: OPIN2,
         busy: P,
         display_rotation: DisplayRotation,
     ) -> Self {
@@ -141,11 +143,12 @@ where
 }
 
 #[cfg(feature = "graphics")]
-impl<SPI, OPIN, E, P> DrawTarget for Ssd1680<SPI, OPIN, P>
+impl<SPI, OPIN, OPIN2, E, P> DrawTarget for Ssd1680<SPI, OPIN, OPIN2, P>
 where
     SPI: SpiDevice<Error = E>,
     SPI::Bus: SpiBus,
     OPIN: OutputPin<Error = Infallible>,
+    OPIN2: OutputPin<Error = Infallible>,
     P: Wait<Error = Infallible>,
 {
     type Color = BinaryColor;
@@ -167,11 +170,12 @@ where
 }
 
 #[cfg(feature = "graphics")]
-impl<SPI, OPIN, E, P> OriginDimensions for Ssd1680<SPI, OPIN, P>
+impl<SPI, OPIN, OPIN2, E, P> OriginDimensions for Ssd1680<SPI, OPIN, OPIN2, P>
 where
     SPI: SpiDevice<Error = E>,
     SPI::Bus: SpiBus,
     OPIN: OutputPin<Error = Infallible>,
+    OPIN2: OutputPin<Error = Infallible>,
     P: Wait<Error = Infallible>,
 {
     fn size(&self) -> Size {
