@@ -41,22 +41,22 @@ use defmt_rtt as _;
 use panic_probe as _;
 
 use core::future::pending;
-use embassy::interrupt::InterruptExt;
-use embassy::time::{Delay, Duration, Timer};
-use embassy::util::Forever;
+use embassy_time::{Delay, Duration, Timer};
 use embassy_nrf::gpio::{self, AnyPin, Pin};
-use embassy_nrf::{interrupt, spim};
+use embassy_nrf::interrupt::{self, InterruptExt};
 use embedded_graphics::{
     pixelcolor::BinaryColor,
     prelude::*,
     primitives::{PrimitiveStyle, Rectangle},
 };
+use embassy_util::Forever;
 use embedded_hal_async::delay::DelayUs;
 use embedded_hal_async::spi::ExclusiveDevice;
 use ssd1680::{DisplayRotation, Ssd1680};
+use embassy_nrf::spim;
 
 // we make a lazily created static
-static EXECUTOR: Forever<embassy::executor::Executor> = Forever::new();
+static EXECUTOR: Forever<embassy_executor::Executor> = Forever::new();
 
 #[cortex_m_rt::entry]
 fn main() -> ! {
@@ -64,7 +64,7 @@ fn main() -> ! {
     info!("Hello World!");
 
     // once we hit runtime we create and fill that executor finally
-    let executor = EXECUTOR.put(embassy::executor::Executor::new());
+    let executor = EXECUTOR.put(embassy_executor::Executor::new());
 
     // provides the peripherals from the async first pac if you selected it
     let dp = embassy_nrf::init(embassy_config());
@@ -84,7 +84,7 @@ fn main() -> ! {
     })
 }
 
-#[embassy::task]
+#[embassy_executor::task]
 async fn blinky_task(mut led: gpio::Output<'static, AnyPin>) {
     loop {
         led.set_high();
@@ -94,12 +94,12 @@ async fn blinky_task(mut led: gpio::Output<'static, AnyPin>) {
     }
 }
 
-#[embassy::task]
+#[embassy_executor::task]
 pub async fn display_task() {
     // Too lazy to pass all the pins and peripherals we need.
     // Safety: Fragile but safe as long as pins and peripherals arent used
     // anywhere else
-    let mut dp = unsafe { <embassy_nrf::Peripherals as embassy::util::Steal>::steal() };
+    let mut dp = unsafe { embassy_nrf::Peripherals::steal() };
 
     let mut spim_irq = interrupt::take!(SPIM3);
     spim_irq.set_priority(interrupt::Priority::P4);
