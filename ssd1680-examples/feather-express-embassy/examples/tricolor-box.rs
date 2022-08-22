@@ -122,11 +122,11 @@ pub async fn display_task() {
 
     let dc = gpio::Output::new(
         dp.P0_27.degrade(),
-        gpio::Level::Low,
+        gpio::Level::High,
         gpio::OutputDrive::Standard,
     );
 
-    let reset = gpio::Output::new(
+    let mut reset = gpio::Output::new(
         dp.P0_30.degrade(),
         gpio::Level::High,
         gpio::OutputDrive::Standard,
@@ -134,14 +134,14 @@ pub async fn display_task() {
 
     let busy = gpio::Input::new(dp.P0_06.degrade(), gpio::Pull::Up);
 
-    let mut ssd1680 = Ssd1680TriColor::new(spi_dev, dc, reset, busy, DisplayRotation::Rotate0);
+    let mut ssd1680 = Ssd1680TriColor::new(spi_dev, dc, busy, DisplayRotation::Rotate0);
 
     Rectangle::new(Point::new(0, 0), Size::new(15, 15))
         .into_styled(PrimitiveStyle::with_fill(TriColor::Chromatic))
         .draw(&mut ssd1680)
         .unwrap();
 
-    ssd1680.flush(&mut Delay).await.unwrap();
+    ssd1680.flush(&mut Delay, &mut reset).await.unwrap();
 
     Delay.delay_ms(2000).await.unwrap();
 
@@ -150,7 +150,7 @@ pub async fn display_task() {
         .draw(&mut ssd1680)
         .unwrap();
 
-    ssd1680.flush(&mut Delay).await.unwrap();
+    ssd1680.flush(&mut Delay, &mut reset).await.unwrap();
 
     pending::<()>().await;
 }

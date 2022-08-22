@@ -5,35 +5,27 @@ use embedded_hal_async::delay::DelayUs;
 use embedded_hal_async::digital::Wait;
 use embedded_hal_async::spi::{SpiBus, SpiDevice};
 
-pub struct SpiInterface<SPI, OPIN, OPIN2, P>
+pub struct SpiInterface<SPI, OPIN, P>
 where
     SPI: SpiDevice,
     SPI::Bus: SpiBus,
     OPIN: OutputPin<Error = Infallible>,
-    OPIN2: OutputPin<Error = Infallible>,
     P: Wait<Error = Infallible>,
 {
     spi: SPI,
     dc: OPIN,
     busy: P,
-    reset: OPIN2,
 }
 
-impl<SPI, OPIN, OPIN2, E, P> SpiInterface<SPI, OPIN, OPIN2, P>
+impl<SPI, OPIN, E, P> SpiInterface<SPI, OPIN, P>
 where
     SPI: SpiDevice<Error = E>,
     SPI::Bus: SpiBus,
     OPIN: OutputPin<Error = Infallible>,
-    OPIN2: OutputPin<Error = Infallible>,
     P: Wait<Error = Infallible>,
 {
-    pub fn new(spi: SPI, dc: OPIN, reset: OPIN2, busy: P) -> Self {
-        Self {
-            spi,
-            dc,
-            busy,
-            reset,
-        }
+    pub fn new(spi: SPI, dc: OPIN, busy: P) -> Self {
+        Self { spi, dc, busy }
     }
 
     pub async fn software_reset(&mut self) -> Result<(), Error<E>> {
@@ -69,26 +61,12 @@ where
         self.spi.write(buffer).await.map_err(Error::Comm)
     }
 
-    pub async fn hardware_reset<D>(&mut self, delay: &mut D) -> Result<(), Error<E>>
-    where
-        D: DelayUs,
-    {
-        self.reset.set_low().ok();
-        delay.delay_ms(10).await.ok();
-        self.reset.set_high().ok();
-        Ok(())
-    }
-
     pub async fn busy_wait(&mut self) -> Result<(), Error<E>> {
         self.busy.wait_for_low().await.ok();
         Ok(())
     }
 
-    pub async fn power_up<D>(&mut self, delay: &mut D) -> Result<(), Error<E>>
-    where
-        D: DelayUs,
-    {
-        self.hardware_reset(delay).await?;
+    pub async fn power_up(&mut self) -> Result<(), Error<E>> {
         self.software_reset().await?;
 
         // command list
@@ -124,7 +102,21 @@ where
     }
 
     pub async fn power_down(&mut self) -> Result<(), Error<E>> {
+        // // Sleeps and keeps access to RAM and controller
+        // Normal = 0x00,
+        // // Sleeps without access to RAM/controller but keeps RAM content
+        // Mode1 = 0x01,
+        // // Same as MODE_1 but RAM content is not kept
+        // Mode2 = 0x11,
+        // but thats 11 bits, or 3 right? todo  talk to epd waveshare people
+
+        // 0x0
+        // 0x1
+        // 0x2
+        // 0x3
+
         self.send_command(Command::Sleep).await?;
-        self.send_data(&[0x01]).await
+        self.send_data(&[0x01]).await?;
+        Ok(())
     }
 }

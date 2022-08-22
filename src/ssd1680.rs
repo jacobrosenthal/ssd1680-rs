@@ -21,64 +21,63 @@ use embedded_graphics_core::{
     prelude::*,
 };
 
-pub struct Ssd1680<SPI, OPIN, OPIN2, P>
+pub struct Ssd1680<SPI, OPIN, P>
 where
     SPI: SpiDevice,
     SPI::Bus: SpiBus,
     OPIN: OutputPin<Error = Infallible>,
-    OPIN2: OutputPin<Error = Infallible>,
     P: Wait<Error = Infallible>,
 {
     buffer: [u8; BUF_SIZE],
     display_rotation: DisplayRotation,
-    interface: SpiInterface<SPI, OPIN, OPIN2, P>,
+    interface: SpiInterface<SPI, OPIN, P>,
 }
 
-impl<SPI, OPIN, OPIN2, E, P> Ssd1680<SPI, OPIN, OPIN2, P>
+impl<SPI, OPIN, E, P> Ssd1680<SPI, OPIN, P>
 where
     SPI: SpiDevice<Error = E>,
     SPI::Bus: SpiBus,
     OPIN: OutputPin<Error = Infallible>,
-    OPIN2: OutputPin<Error = Infallible>,
     P: Wait<Error = Infallible>,
 {
-    pub fn new(
-        spi: SPI,
-        dc: OPIN,
-        reset: OPIN2,
-        busy: P,
-        display_rotation: DisplayRotation,
-    ) -> Self {
+    pub fn new(spi: SPI, dc: OPIN, busy: P, display_rotation: DisplayRotation) -> Self {
         Self {
-            interface: SpiInterface::new(spi, dc, reset, busy),
+            interface: SpiInterface::new(spi, dc, busy),
             display_rotation,
             buffer: [0xFF; BUF_SIZE], // inverted
         }
     }
 
-    pub async fn flush<D>(&mut self, delay: &mut D) -> Result<(), Error<E>>
+    pub async fn init<D, OPIN2>(&mut self, delay: &mut D, reset: &mut OPIN2) -> Result<(), Error<E>>
     where
         D: DelayUs,
+        OPIN2: OutputPin<Error = Infallible>,
     {
-        self.interface.power_up(delay).await?;
+        reset.set_low().ok();
+        delay.delay_ms(10).await.ok();
+        reset.set_high().ok();
 
-        self.interface.set_ram_address(1, 0).await?;
+        self.interface.software_reset().await
+    }
 
-        self.interface
-            .write_ram_frame_buffer(&self.buffer, Command::WriteRAM1)
-            .await?;
+    pub async fn flush<D, OPIN2>(
+        &mut self,
+        delay: &mut D,
+        reset: &mut OPIN2,
+    ) -> Result<(), Error<E>>
+    where
+        D: DelayUs,
+        OPIN2: OutputPin<Error = Infallible>,
+    {
+        reset.set_low().ok();
+        delay.delay_ms(10).await.ok();
+        reset.set_high().ok();
 
-        self.interface.busy_wait().await?;
-        // update
-        {
-            self.interface.send_command(Command::DispCtrl2).await?;
-            self.interface.send_data(&[0xF4]).await?;
+        self.interface.power_up().await?;
 
-            self.interface.send_command(Command::MasterActivate).await?;
-            self.interface.busy_wait().await?;
-        }
+        self.flush_display().await?;
 
-        self.interface.power_down().await
+        self.flush_update().await
     }
 
     pub async fn flush_display(&mut self) -> Result<(), Error<E>> {
@@ -99,15 +98,29 @@ where
         self.interface.busy_wait().await
     }
 
-    pub async fn power_down(&mut self) -> Result<(), Error<E>> {
-        self.interface.power_down().await
-    }
-
-    pub async fn power_up<D>(&mut self, delay: &mut D) -> Result<(), Error<E>>
+    pub async fn power_down<D>(&mut self, delay: &mut D) -> Result<(), Error<E>>
     where
         D: DelayUs,
     {
-        self.interface.power_up(delay).await
+        self.interface.power_down().await?;
+        delay.delay_ms(100).await.ok();
+        Ok(())
+    }
+
+    pub async fn power_up<D, OPIN2>(
+        &mut self,
+        delay: &mut D,
+        reset: &mut OPIN2,
+    ) -> Result<(), Error<E>>
+    where
+        D: DelayUs,
+        OPIN2: OutputPin<Error = Infallible>,
+    {
+        reset.set_low().ok();
+        delay.delay_ms(10).await.ok();
+        reset.set_high().ok();
+
+        self.interface.power_up().await
     }
 
     pub fn set_pixel(&mut self, x: u32, y: u32, color: BinaryColor) {
@@ -143,12 +156,11 @@ where
 }
 
 #[cfg(feature = "graphics")]
-impl<SPI, OPIN, OPIN2, E, P> DrawTarget for Ssd1680<SPI, OPIN, OPIN2, P>
+impl<SPI, OPIN, E, P> DrawTarget for Ssd1680<SPI, OPIN, P>
 where
     SPI: SpiDevice<Error = E>,
     SPI::Bus: SpiBus,
     OPIN: OutputPin<Error = Infallible>,
-    OPIN2: OutputPin<Error = Infallible>,
     P: Wait<Error = Infallible>,
 {
     type Color = BinaryColor;
@@ -170,12 +182,11 @@ where
 }
 
 #[cfg(feature = "graphics")]
-impl<SPI, OPIN, OPIN2, E, P> OriginDimensions for Ssd1680<SPI, OPIN, OPIN2, P>
+impl<SPI, OPIN, E, P> OriginDimensions for Ssd1680<SPI, OPIN, P>
 where
     SPI: SpiDevice<Error = E>,
     SPI::Bus: SpiBus,
     OPIN: OutputPin<Error = Infallible>,
-    OPIN2: OutputPin<Error = Infallible>,
     P: Wait<Error = Infallible>,
 {
     fn size(&self) -> Size {
