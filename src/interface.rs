@@ -1,7 +1,6 @@
 use crate::{command::Command, error::Error, DISPLAY_HEIGHT, DISPLAY_WIDTH};
 use core::convert::Infallible;
 use embedded_hal::digital::v2::OutputPin;
-use embedded_hal_async::delay::DelayUs;
 use embedded_hal_async::digital::Wait;
 use embedded_hal_async::spi::{SpiBus, SpiDevice};
 

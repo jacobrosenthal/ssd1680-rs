@@ -48,10 +48,10 @@ where
         }
     }
 
-    pub async fn init<D, OPIN2>(&mut self, delay: &mut D, reset: &mut OPIN2) -> Result<(), Error<E>>
+    pub async fn init<D, R>(&mut self, delay: &mut D, reset: &mut R) -> Result<(), Error<E>>
     where
         D: DelayUs,
-        OPIN2: OutputPin<Error = Infallible>,
+        R: OutputPin<Error = Infallible>,
     {
         reset.set_low().ok();
         delay.delay_ms(10).await.ok();
@@ -60,14 +60,10 @@ where
         self.interface.software_reset().await
     }
 
-    pub async fn flush<D, OPIN2>(
-        &mut self,
-        delay: &mut D,
-        reset: &mut OPIN2,
-    ) -> Result<(), Error<E>>
+    pub async fn flush<D, R>(&mut self, delay: &mut D, reset: &mut R) -> Result<(), Error<E>>
     where
         D: DelayUs,
-        OPIN2: OutputPin<Error = Infallible>,
+        R: OutputPin<Error = Infallible>,
     {
         reset.set_low().ok();
         delay.delay_ms(10).await.ok();
@@ -107,14 +103,10 @@ where
         Ok(())
     }
 
-    pub async fn power_up<D, OPIN2>(
-        &mut self,
-        delay: &mut D,
-        reset: &mut OPIN2,
-    ) -> Result<(), Error<E>>
+    pub async fn power_up<D, R>(&mut self, delay: &mut D, reset: &mut R) -> Result<(), Error<E>>
     where
         D: DelayUs,
-        OPIN2: OutputPin<Error = Infallible>,
+        R: OutputPin<Error = Infallible>,
     {
         reset.set_low().ok();
         delay.delay_ms(10).await.ok();

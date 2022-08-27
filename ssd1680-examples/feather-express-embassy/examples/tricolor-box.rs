@@ -135,6 +135,7 @@ pub async fn display_task() {
     let busy = gpio::Input::new(dp.P0_06.degrade(), gpio::Pull::Up);
 
     let mut ssd1680 = Ssd1680TriColor::new(spi_dev, dc, busy, DisplayRotation::Rotate0);
+    ssd1680.init(&mut Delay, &mut reset).await.unwrap();
 
     Rectangle::new(Point::new(0, 0), Size::new(15, 15))
         .into_styled(PrimitiveStyle::with_fill(TriColor::Chromatic))
